@@ -1,0 +1,33 @@
+{
+  "name": "nico-ai-crm",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm:dev --workspace @nico-ai-crm/worker\" \"npm:dev --workspace @nico-ai-crm/web\"",
+    "dev:web": "npm run dev --workspace @nico-ai-crm/web",
+    "dev:worker": "npm run dev --workspace @nico-ai-crm/worker",
+    "build": "npm run build --workspaces",
+    "typecheck": "npm run typecheck --workspaces",
+    "lint": "eslint . --ext .ts,.tsx",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "cf-typegen": "npm run cf-typegen --workspace @nico-ai-crm/worker"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "concurrently": "^9.1.2",
+    "eslint": "^9.18.0",
+    "eslint-config-prettier": "^10.0.1",
+    "globals": "^15.14.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.20.0",
+    "vitest": "^2.1.8"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "@nico-ai-crm/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --port 8787",
+    "build": "wrangler deploy --dry-run --outdir dist",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "cf-typegen": "wrangler types"
+  },
+  "dependencies": {
+    "@nico-ai-crm/db": "0.1.0",
+    "@nico-ai-crm/erp-contract": "0.1.0",
+    "@nico-ai-crm/shared": "0.1.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250109.0",
+    "wrangler": "^3.101.0"
+  }
+}
