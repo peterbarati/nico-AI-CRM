@@ -11,6 +11,8 @@
     "dev": "concurrently \"npm:dev --workspace @nico-ai-crm/worker\" \"npm:dev --workspace @nico-ai-crm/web\"",
     "dev:web": "npm run dev --workspace @nico-ai-crm/web",
     "dev:worker": "npm run dev --workspace @nico-ai-crm/worker",
+    "db:migrate:local": "wrangler d1 migrations apply nico-ai-crm --local",
+    "db:seed:local": "wrangler d1 execute nico-ai-crm --local --file packages/db/seeds/demo.sql",
     "build": "npm run build --workspaces",
     "typecheck": "npm run typecheck --workspaces",
     "lint": "eslint . --ext .ts,.tsx",

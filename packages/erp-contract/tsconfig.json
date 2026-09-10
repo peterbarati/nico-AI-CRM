@@ -3,5 +3,6 @@
   "compilerOptions": {
     "composite": true
   },
-  "include": ["src"]
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts"]
 }

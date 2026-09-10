@@ -38,6 +38,13 @@ Install dependencies:
 npm install
 ```
 
+Prepare the local D1 database:
+
+```bash
+npm run db:migrate:local
+npm run db:seed:local
+```
+
 Run the Worker API and frontend together:
 
 ```bash
@@ -51,6 +58,17 @@ Health endpoint:
 
 ```bash
 curl http://localhost:8787/api/health
+```
+
+Demo API endpoints:
+
+```bash
+curl "http://localhost:8787/api/customers?page=1&pageSize=10"
+curl "http://localhost:8787/api/customers?search=Blue%20Pine"
+curl http://localhost:8787/api/customers/cus-002
+curl http://localhost:8787/api/customers/cus-002/orders
+curl http://localhost:8787/api/segments
+curl http://localhost:8787/api/tasks
 ```
 
 ## Quality Checks

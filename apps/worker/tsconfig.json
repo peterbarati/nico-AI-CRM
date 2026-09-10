@@ -4,5 +4,6 @@
     "composite": true,
     "types": ["@cloudflare/workers-types"]
   },
-  "include": ["src"]
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts"]
 }
