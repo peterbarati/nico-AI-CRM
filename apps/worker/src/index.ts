@@ -1,5 +1,6 @@
 import {
   createDatabaseContext,
+  getCustomerFilterOptions,
   getCustomerOverview,
   listCustomerInteractions,
   listCustomerOrders,
@@ -78,6 +79,9 @@ function parseCustomerListQuery(url: URL): CustomerListQuery {
   return {
     ...parsePagination(url),
     search: url.searchParams.get("search") ?? undefined,
+    assignedSalesRepId: url.searchParams.get("assignedSalesRepId") ?? undefined,
+    b2bStatus: url.searchParams.get("b2bStatus") ?? undefined,
+    segmentCode: url.searchParams.get("segmentCode") ?? undefined,
     active:
       activeParam === null
         ? undefined
@@ -96,7 +100,9 @@ function isCustomerSortField(value: string | null): value is CustomerSortField {
     value === "company_name" ||
     value === "city" ||
     value === "updated_at" ||
-    value === "last_order_date"
+    value === "last_order_date" ||
+    value === "turnover_90d" ||
+    value === "days_since_last_order"
   );
 }
 
@@ -127,6 +133,10 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
   if (url.pathname === "/api/customers") {
     const result = await listCustomers(context, parseCustomerListQuery(url));
     return jsonResponse({ ok: true, data: result.items, pagination: result.pagination });
+  }
+
+  if (url.pathname === "/api/customers/filters") {
+    return ok(await getCustomerFilterOptions(context));
   }
 
   if (url.pathname === "/api/segments") {

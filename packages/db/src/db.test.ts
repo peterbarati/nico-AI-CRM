@@ -113,10 +113,31 @@ describe("customer read repositories", () => {
     expect(result.items[0]?.id).toBe("cus-002");
   });
 
+  it("filters customer lists by sales rep, B2B status, and segment", async () => {
+    const result = await listCustomers(createSeededContext(), {
+      assignedSalesRepId: "usr-sales-002",
+      b2bStatus: "registered",
+      segmentCode: "DECLINING"
+    });
+
+    expect(result.items.length).toBeGreaterThan(0);
+    expect(
+      result.items.every((customer) => customer.assignedSalesRep?.id === "usr-sales-002")
+    ).toBe(true);
+    expect(result.items.every((customer) => customer.b2bStatus === "registered")).toBe(true);
+    expect(
+      result.items.every((customer) =>
+        customer.segments.some((segment) => segment.code === "DECLINING")
+      )
+    ).toBe(true);
+  });
+
   it("returns customer detail aggregation", async () => {
     const overview = await getCustomerOverview(createSeededContext(), "cus-002");
 
     expect(overview?.customer.companyName).toBe("Blue Pine Stores");
+    expect(overview?.customer.turnover90d).toBeGreaterThan(0);
+    expect(overview?.customer.segments.map((segment) => segment.code)).toContain("REORDER_DUE");
     expect(overview?.locations.length).toBeGreaterThan(0);
     expect(overview?.segments.map((segment) => segment.code)).toContain("REORDER_DUE");
     expect(overview?.latestOrders[0]?.id).toBe("ord-003");
