@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AppShell, type NavItem } from "./layouts/AppShell";
 import { CustomersPage } from "./features/customers/CustomersPage";
+import { CustomerServicePage } from "./features/customer-service/CustomerServicePage";
 import { ComingSoonPage } from "./pages/ComingSoonPage";
 
 const navItems: NavItem[] = [
@@ -43,6 +44,8 @@ export function App() {
   const page =
     path === "/customers" || customerDetailMatch ? (
       <CustomersPage customerId={customerDetailMatch?.[1]} onNavigate={navigate} />
+    ) : path === "/customer-service" ? (
+      <CustomerServicePage onNavigate={navigate} />
     ) : (
       <ComingSoonPage title={activeItem.label} />
     );

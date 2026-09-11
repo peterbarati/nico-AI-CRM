@@ -1,7 +1,16 @@
 import {
+  defaultCustomerServiceRulesConfig,
+  evaluateCustomerServicePriority,
+  type CustomerServicePriorityLevel,
+  type CustomerServiceRulesConfig
+} from "@nico-ai-crm/crm-rules";
+import {
+  countCompletedCustomerServiceCallsToday,
   createDatabaseContext,
   getCustomerFilterOptions,
   getCustomerOverview,
+  getSystemConfigByPrefix,
+  listCustomerServiceCandidates,
   listCustomerInteractions,
   listCustomerOrders,
   listCustomers,
@@ -95,6 +104,23 @@ function parseCustomerListQuery(url: URL): CustomerListQuery {
   };
 }
 
+function parseCustomerServiceQueueQuery(url: URL) {
+  const priority = url.searchParams.get("priority");
+
+  return {
+    limit: parsePositiveInt(url.searchParams.get("limit")),
+    priority: isCustomerServicePriorityLevel(priority) ? priority : undefined,
+    assignedSalesRepId: url.searchParams.get("assignedSalesRepId") ?? undefined,
+    segmentCode: url.searchParams.get("segmentCode") ?? undefined
+  };
+}
+
+function isCustomerServicePriorityLevel(
+  value: string | null
+): value is CustomerServicePriorityLevel {
+  return value === "CRITICAL" || value === "HIGH" || value === "MEDIUM" || value === "LOW";
+}
+
 function isCustomerSortField(value: string | null): value is CustomerSortField {
   return (
     value === "company_name" ||
@@ -151,6 +177,84 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
     return jsonResponse({ ok: true, data: result.items, pagination: result.pagination });
   }
 
+  if (url.pathname === "/api/customer-service/queue") {
+    const now = new Date();
+    const query = parseCustomerServiceQueueQuery(url);
+    const [configRows, candidates, callsCompletedToday] = await Promise.all([
+      getSystemConfigByPrefix(context, "customer_service."),
+      listCustomerServiceCandidates(context, {
+        ...query,
+        limit: query.limit ? Math.max(query.limit * 5, 100) : undefined,
+        now
+      }),
+      countCompletedCustomerServiceCallsToday(context, now)
+    ]);
+    const config = applyCustomerServiceConfigRows(defaultCustomerServiceRulesConfig, configRows);
+    const rankedItems = candidates
+      .map((candidate) => {
+        const priority = evaluateCustomerServicePriority(
+          {
+            active: candidate.active,
+            averageReorderDays: candidate.averageReorderDays,
+            b2bStatus: candidate.b2bStatus,
+            campaignClickedWithoutConversion: candidate.campaignClickedWithoutConversion,
+            customerId: candidate.customerId,
+            daysSinceLastOrder: candidate.daysSinceLastOrder,
+            lastInteractionAt: candidate.lastInteraction?.createdAt ?? null,
+            openTaskCount: candidate.openTaskCount,
+            overdueTaskCount: candidate.overdueTaskCount,
+            previousTurnover90d: candidate.previousTurnover90d,
+            segmentCodes: candidate.segments.map((segment) => segment.code),
+            turnover90d: candidate.turnover90d
+          },
+          config,
+          now
+        );
+
+        return {
+          ...candidate,
+          priority
+        };
+      })
+      .filter((item) => item.priority.shouldContact)
+      .filter((item) => !query.priority || item.priority.priorityLevel === query.priority)
+      .sort(
+        (left, right) =>
+          right.priority.priorityScore - left.priority.priorityScore ||
+          right.turnover90d - left.turnover90d ||
+          left.companyName.localeCompare(right.companyName)
+      );
+    const limit = query.limit ?? config.dailyCallTarget;
+    const items = rankedItems.slice(0, limit);
+    const summary = {
+      dailyCallTarget: config.dailyCallTarget,
+      callsCompletedToday,
+      callsRemaining: Math.max(0, config.dailyCallTarget - callsCompletedToday),
+      criticalCustomers: rankedItems.filter((item) => item.priority.priorityLevel === "CRITICAL")
+        .length,
+      highPriorityCustomers: rankedItems.filter((item) => item.priority.priorityLevel === "HIGH")
+        .length,
+      reactivationCandidates: rankedItems.filter((item) =>
+        item.priority.recommendedActions.includes("REACTIVATION")
+      ).length,
+      overdueFollowUps: rankedItems.filter((item) => item.overdueTaskCount > 0).length
+    };
+
+    return jsonResponse({
+      ok: true,
+      data: {
+        items,
+        summary,
+        meta: {
+          generatedAt: now.toISOString(),
+          limit,
+          evaluatedCandidates: candidates.length,
+          returned: items.length
+        }
+      }
+    });
+  }
+
   const customerRoute = url.pathname.match(
     /^\/api\/customers\/([^/]+)(?:\/(orders|interactions|tasks|visits))?$/
   );
@@ -189,6 +293,101 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
   }
 
   return notFound();
+}
+
+function applyCustomerServiceConfigRows(
+  defaults: CustomerServiceRulesConfig,
+  rows: Array<{ key: string; value: string }>
+): CustomerServiceRulesConfig {
+  const config: CustomerServiceRulesConfig = {
+    ...defaults,
+    weights: {
+      ...defaults.weights
+    }
+  };
+
+  for (const row of rows) {
+    const numericValue = Number(row.value);
+    if (!Number.isFinite(numericValue)) {
+      continue;
+    }
+
+    assignCustomerServiceConfigValue(config, row.key, numericValue);
+  }
+
+  return config;
+}
+
+function assignCustomerServiceConfigValue(
+  config: CustomerServiceRulesConfig,
+  key: string,
+  value: number
+) {
+  switch (key) {
+    case "customer_service.daily_call_target":
+      config.dailyCallTarget = value;
+      break;
+    case "customer_service.reorder_grace_days":
+      config.reorderGraceDays = value;
+      break;
+    case "customer_service.at_risk_days":
+      config.atRiskDays = value;
+      break;
+    case "customer_service.critical_days":
+      config.criticalDays = value;
+      break;
+    case "customer_service.reactivation_days":
+      config.reactivationDays = value;
+      break;
+    case "customer_service.recent_interaction_suppression_days":
+      config.recentInteractionSuppressionDays = value;
+      break;
+    case "customer_service.weight_reorder_slightly_overdue":
+      config.weights.reorderSlightlyOverdue = value;
+      break;
+    case "customer_service.weight_reorder_significantly_overdue":
+      config.weights.reorderSignificantlyOverdue = value;
+      break;
+    case "customer_service.weight_reorder_severely_overdue":
+      config.weights.reorderSeverelyOverdue = value;
+      break;
+    case "customer_service.weight_decline_20":
+      config.weights.decline20 = value;
+      break;
+    case "customer_service.weight_decline_30":
+      config.weights.decline30 = value;
+      break;
+    case "customer_service.weight_decline_50":
+      config.weights.decline50 = value;
+      break;
+    case "customer_service.weight_inactivity_at_risk":
+      config.weights.inactivityAtRisk = value;
+      break;
+    case "customer_service.weight_inactivity_critical":
+      config.weights.inactivityCritical = value;
+      break;
+    case "customer_service.weight_inactivity_reactivation":
+      config.weights.inactivityReactivation = value;
+      break;
+    case "customer_service.weight_b2b_missing":
+      config.weights.b2bMissing = value;
+      break;
+    case "customer_service.weight_campaign_interest":
+      config.weights.campaignInterest = value;
+      break;
+    case "customer_service.weight_open_follow_up_task":
+      config.weights.openFollowUpTask = value;
+      break;
+    case "customer_service.weight_overdue_follow_up_task":
+      config.weights.overdueFollowUpTask = value;
+      break;
+    case "customer_service.weight_cross_sell":
+      config.weights.crossSell = value;
+      break;
+    case "customer_service.weight_recent_interaction_reduction":
+      config.weights.recentInteractionReduction = value;
+      break;
+  }
 }
 
 export default {

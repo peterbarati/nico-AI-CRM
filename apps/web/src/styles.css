@@ -387,6 +387,12 @@ select {
   grid-template-columns: repeat(4, minmax(150px, 1fr));
 }
 
+.cs-summary-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(7, minmax(120px, 1fr));
+}
+
 .metric-card {
   background: #fff;
   border: 1px solid #dde3ec;
@@ -440,6 +446,47 @@ select {
   margin-bottom: 10px;
 }
 
+.queue-meta {
+  color: #526274;
+  font-size: 0.88rem;
+  margin: -4px 0 0;
+}
+
+.cs-queue-table {
+  min-width: 1320px;
+}
+
+.priority-pill {
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1;
+  padding: 7px 9px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.priority-pill--CRITICAL {
+  background: #f9dbd7;
+  color: #9d2f25;
+}
+
+.priority-pill--HIGH {
+  background: #fde8c5;
+  color: #885313;
+}
+
+.priority-pill--MEDIUM {
+  background: #dfeef8;
+  color: #245d84;
+}
+
+.priority-pill--LOW {
+  background: #e8f4ef;
+  color: #24604a;
+}
+
 .empty-state,
 .error-state,
 .loading-state {
@@ -466,6 +513,7 @@ select {
 
   .filter-panel,
   .metric-grid,
+  .cs-summary-grid,
   .detail-layout {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -480,6 +528,7 @@ select {
 
   .filter-panel,
   .metric-grid,
+  .cs-summary-grid,
   .detail-layout,
   .status-stack {
     grid-template-columns: 1fr;

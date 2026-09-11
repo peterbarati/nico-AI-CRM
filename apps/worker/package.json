@@ -10,6 +10,7 @@
     "cf-typegen": "wrangler types"
   },
   "dependencies": {
+    "@nico-ai-crm/crm-rules": "0.1.0",
     "@nico-ai-crm/db": "0.1.0",
     "@nico-ai-crm/erp-contract": "0.1.0",
     "@nico-ai-crm/shared": "0.1.0"

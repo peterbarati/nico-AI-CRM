@@ -5,7 +5,10 @@ import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import {
   createDatabaseContext,
+  countCompletedCustomerServiceCallsToday,
   getCustomerOverview,
+  getSystemConfigByPrefix,
+  listCustomerServiceCandidates,
   listCustomerOrders,
   listCustomers,
   listSegments
@@ -169,5 +172,41 @@ describe("customer read repositories", () => {
       "REACTIVATION",
       "REORDER_DUE"
     ]);
+  });
+});
+
+describe("customer service read repositories", () => {
+  it("returns bounded customer service candidates with queue facts", async () => {
+    const result = await listCustomerServiceCandidates(createSeededContext(), {
+      limit: 10,
+      now: new Date("2026-09-11T12:00:00.000Z")
+    });
+
+    const bluePine = result.find((candidate) => candidate.customerId === "cus-002");
+
+    expect(result.length).toBeGreaterThan(0);
+    expect(bluePine?.segments.map((segment) => segment.code)).toContain("REORDER_DUE");
+    expect(bluePine?.openTaskCount).toBe(1);
+    expect(bluePine?.lastInteraction?.interactionType).toBe("CALL");
+  });
+
+  it("counts completed customer service calls for today", async () => {
+    const result = await countCompletedCustomerServiceCallsToday(
+      createSeededContext(),
+      new Date("2026-09-11T12:00:00.000Z")
+    );
+
+    expect(result).toBe(1);
+  });
+
+  it("loads namespaced customer service configuration", async () => {
+    const result = await getSystemConfigByPrefix(createSeededContext(), "customer_service.");
+
+    expect(result.find((entry) => entry.key === "customer_service.daily_call_target")?.value).toBe(
+      "8"
+    );
+    expect(result.find((entry) => entry.key === "customer_service.reorder_grace_days")?.value).toBe(
+      "7"
+    );
   });
 });

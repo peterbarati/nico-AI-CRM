@@ -17,3 +17,7 @@ export * from "./campaigns/queries";
 export * from "./campaigns/types";
 export * from "./kpi/queries";
 export * from "./kpi/types";
+export * from "./config/queries";
+export * from "./config/types";
+export * from "./customer-service/queries";
+export * from "./customer-service/types";

@@ -159,7 +159,8 @@ INSERT OR IGNORE INTO customer_interactions (id, customer_id, customer_location_
   ('int-002', 'cus-003', 'loc-003-main', 'usr-cs-002', 'CALL', 'Declining turnover', 'Reached buyer', 'Buyer mentioned lower demand this month.', 'Sales rep visit', '2026-09-15T10:00:00.000Z', '2026-09-07T11:00:00.000Z', '2026-09-07T11:00:00.000Z'),
   ('int-003', 'cus-007', 'loc-007-main', 'usr-cs-003', 'EMAIL', 'B2B registration', 'Email sent', 'Sent B2B activation instructions.', 'Check registration', '2026-09-14T08:00:00.000Z', '2026-09-06T08:00:00.000Z', '2026-09-06T08:00:00.000Z'),
   ('int-004', 'cus-009', 'loc-009-main', 'usr-cs-001', 'CUSTOMER_SERVICE', 'Campaign click follow-up', 'Interested', 'Asked for product comparison.', 'Prepare offer', '2026-09-11T13:00:00.000Z', '2026-09-05T13:00:00.000Z', '2026-09-05T13:00:00.000Z'),
-  ('int-005', 'cus-001', 'loc-001-main', 'usr-sales-001', 'MEETING', 'Quarterly check-in', 'Positive', 'Customer wants seasonal display preview.', NULL, NULL, '2026-08-30T12:00:00.000Z', '2026-08-30T12:00:00.000Z');
+  ('int-005', 'cus-001', 'loc-001-main', 'usr-sales-001', 'MEETING', 'Quarterly check-in', 'Positive', 'Customer wants seasonal display preview.', NULL, NULL, '2026-08-30T12:00:00.000Z', '2026-08-30T12:00:00.000Z'),
+  ('int-006', 'cus-010', 'loc-010-main', 'usr-cs-002', 'CALL', 'Routine reorder check', 'Completed', 'Recent customer service check completed; no follow-up needed today.', NULL, NULL, '2026-09-11T08:30:00.000Z', '2026-09-11T08:30:00.000Z');
 
 INSERT OR IGNORE INTO tasks (id, customer_id, customer_location_id, assigned_user_id, created_by_user_id, source_interaction_id, title, description, task_type, priority, status, due_at, completed_at, created_at, updated_at) VALUES
   ('tsk-001', 'cus-002', 'loc-002-main', 'usr-cs-001', 'usr-cs-001', 'int-001', 'Call Blue Pine about reorder', 'Follow up after no answer.', 'call', 'high', 'open', '2026-09-12T09:00:00.000Z', NULL, '2026-09-08T09:05:00.000Z', '2026-09-08T09:05:00.000Z'),
@@ -198,7 +199,28 @@ INSERT OR IGNORE INTO system_config (key, value, value_type, description, update
   ('reorder_grace_days', '7', 'number', 'Extra days after expected reorder before customer becomes reorder due.', '2026-09-01T00:00:00.000Z'),
   ('at_risk_days', '30', 'number', 'Days since last order before customer is considered at risk.', '2026-09-01T00:00:00.000Z'),
   ('critical_inactivity_days', '60', 'number', 'Days since last order before customer is considered critical.', '2026-09-01T00:00:00.000Z'),
-  ('reactivation_days', '90', 'number', 'Days since last order before customer is a reactivation candidate.', '2026-09-01T00:00:00.000Z');
+  ('reactivation_days', '90', 'number', 'Days since last order before customer is a reactivation candidate.', '2026-09-01T00:00:00.000Z'),
+  ('customer_service.daily_call_target', '8', 'number', 'Daily required Customer Service call target.', '2026-09-11T00:00:00.000Z'),
+  ('customer_service.reorder_grace_days', '7', 'number', 'Extra days after expected reorder before customer becomes reorder due.', '2026-09-11T00:00:00.000Z'),
+  ('customer_service.at_risk_days', '30', 'number', 'Days since last order before Customer Service risk scoring starts.', '2026-09-11T00:00:00.000Z'),
+  ('customer_service.critical_days', '60', 'number', 'Days since last order before critical inactivity scoring.', '2026-09-11T00:00:00.000Z'),
+  ('customer_service.reactivation_days', '90', 'number', 'Days since last order before reactivation scoring.', '2026-09-11T00:00:00.000Z'),
+  ('customer_service.recent_interaction_suppression_days', '3', 'number', 'Recent completed interaction window for deterministic priority reduction.', '2026-09-11T00:00:00.000Z'),
+  ('customer_service.weight_reorder_slightly_overdue', '15', 'number', 'Priority points for slightly overdue reorder.', '2026-09-11T00:00:00.000Z'),
+  ('customer_service.weight_reorder_significantly_overdue', '25', 'number', 'Priority points for significantly overdue reorder.', '2026-09-11T00:00:00.000Z'),
+  ('customer_service.weight_reorder_severely_overdue', '35', 'number', 'Priority points for severely overdue reorder.', '2026-09-11T00:00:00.000Z'),
+  ('customer_service.weight_decline_20', '15', 'number', 'Priority points for 20 percent sales decline.', '2026-09-11T00:00:00.000Z'),
+  ('customer_service.weight_decline_30', '25', 'number', 'Priority points for 30 percent sales decline.', '2026-09-11T00:00:00.000Z'),
+  ('customer_service.weight_decline_50', '35', 'number', 'Priority points for 50 percent sales decline.', '2026-09-11T00:00:00.000Z'),
+  ('customer_service.weight_inactivity_at_risk', '15', 'number', 'Priority points for at-risk inactivity.', '2026-09-11T00:00:00.000Z'),
+  ('customer_service.weight_inactivity_critical', '30', 'number', 'Priority points for critical inactivity.', '2026-09-11T00:00:00.000Z'),
+  ('customer_service.weight_inactivity_reactivation', '45', 'number', 'Priority points for reactivation inactivity.', '2026-09-11T00:00:00.000Z'),
+  ('customer_service.weight_b2b_missing', '10', 'number', 'Priority points for missing B2B registration.', '2026-09-11T00:00:00.000Z'),
+  ('customer_service.weight_campaign_interest', '20', 'number', 'Priority points for clicked campaign without conversion.', '2026-09-11T00:00:00.000Z'),
+  ('customer_service.weight_open_follow_up_task', '15', 'number', 'Priority points for open follow-up task.', '2026-09-11T00:00:00.000Z'),
+  ('customer_service.weight_overdue_follow_up_task', '25', 'number', 'Priority points for overdue follow-up task.', '2026-09-11T00:00:00.000Z'),
+  ('customer_service.weight_cross_sell', '10', 'number', 'Priority points for cross-sell candidate.', '2026-09-11T00:00:00.000Z'),
+  ('customer_service.weight_recent_interaction_reduction', '-20', 'number', 'Priority reduction after recent completed interaction.', '2026-09-11T00:00:00.000Z');
 
 INSERT OR IGNORE INTO sync_runs (id, provider, entity_type, started_at, finished_at, status, imported_count, updated_count, skipped_count, failed_count, cursor, checkpoint, error_message, created_at, updated_at) VALUES
   ('sync-demo-customers', 'mock', 'customers', '2026-09-01T00:00:00.000Z', '2026-09-01T00:00:01.000Z', 'completed', 20, 0, 0, 0, NULL, 'demo-seed-2026-09', NULL, '2026-09-01T00:00:00.000Z', '2026-09-01T00:00:01.000Z');
