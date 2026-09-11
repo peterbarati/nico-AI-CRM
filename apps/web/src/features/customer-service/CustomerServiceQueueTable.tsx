@@ -6,6 +6,7 @@ interface CustomerServiceQueueTableProps {
   items: CustomerServiceQueueItem[];
   onLogCall: (item: CustomerServiceQueueItem) => void;
   onOpenCustomer: (customerId: string) => void;
+  onPrepareCall: (item: CustomerServiceQueueItem) => void;
 }
 
 const priorityLabels: Record<string, string> = {
@@ -18,7 +19,8 @@ const priorityLabels: Record<string, string> = {
 export function CustomerServiceQueueTable({
   items,
   onLogCall,
-  onOpenCustomer
+  onOpenCustomer,
+  onPrepareCall
 }: CustomerServiceQueueTableProps) {
   if (items.length === 0) {
     return (
@@ -93,6 +95,13 @@ export function CustomerServiceQueueTable({
               </td>
               <td>
                 <strong>{item.priority.primaryRecommendedAction ?? "REVIEW"}</strong>
+                <button
+                  className="secondary-button"
+                  onClick={() => onPrepareCall(item)}
+                  type="button"
+                >
+                  Prepare call
+                </button>
                 <button onClick={() => onLogCall(item)} type="button">
                   Log call
                 </button>

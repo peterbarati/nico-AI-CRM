@@ -459,6 +459,123 @@ textarea {
   color: #a64034;
 }
 
+.assistant-panel,
+.settings-section {
+  background: #fff;
+  border: 1px solid #dde3ec;
+  border-radius: 8px;
+  padding: 18px;
+}
+
+.assistant-panel {
+  border-left: 4px solid #285b86;
+}
+
+.assistant-panel--compact {
+  border: 0;
+  padding: 0;
+}
+
+.assistant-heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.assistant-heading p,
+.assistant-neutral p {
+  margin-bottom: 0;
+}
+
+.assistant-facts,
+.assistant-advice {
+  border-top: 1px solid #dde3ec;
+  margin-top: 16px;
+  padding-top: 16px;
+}
+
+.assistant-fact-grid,
+.settings-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.assistant-fact-grid span {
+  color: #66778a;
+  font-size: 0.82rem;
+}
+
+.assistant-fact-grid strong {
+  color: #17202d;
+  display: block;
+  margin-top: 4px;
+}
+
+.assistant-label {
+  color: #285b86;
+  font-size: 0.74rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.assistant-advice dl {
+  display: grid;
+  gap: 8px 16px;
+  grid-template-columns: 180px minmax(0, 1fr);
+}
+
+.assistant-advice dt {
+  color: #516174;
+  font-weight: 800;
+}
+
+.assistant-advice dd {
+  margin: 0;
+}
+
+.assistant-neutral {
+  background: #f4f7fa;
+  color: #526274;
+  margin-top: 14px;
+  padding: 12px;
+}
+
+.assistant-modal {
+  max-width: 780px;
+}
+
+.settings-section {
+  display: grid;
+  gap: 14px;
+}
+
+.settings-section h3 {
+  margin-bottom: 0;
+}
+
+.settings-grid {
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+}
+
+.settings-grid small {
+  color: #66778a;
+  line-height: 1.35;
+}
+
+.settings-availability {
+  background: #edf3f8;
+  color: #33475f;
+  margin: 0;
+  padding: 10px;
+}
+
+.settings-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .cs-summary-grid {
   display: grid;
   gap: 12px;
@@ -759,6 +876,8 @@ textarea {
   }
 
   .filter-panel,
+  .assistant-fact-grid,
+  .settings-grid,
   .dashboard-metric-grid,
   .metric-grid,
   .cs-summary-grid,
@@ -775,12 +894,18 @@ textarea {
   }
 
   .filter-panel,
+  .assistant-fact-grid,
+  .settings-grid,
   .dashboard-metric-grid,
   .dashboard-plan,
   .metric-grid,
   .cs-summary-grid,
   .detail-layout,
   .status-stack {
+    grid-template-columns: 1fr;
+  }
+
+  .assistant-advice dl {
     grid-template-columns: 1fr;
   }
 

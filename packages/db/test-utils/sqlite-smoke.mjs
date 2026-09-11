@@ -8,7 +8,8 @@ const migrationSql = [
   "0001_initial.sql",
   "0002_interaction_idempotency.sql",
   "0003_sales_workflow_links.sql",
-  "0004_deterministic_kpi_foundation.sql"
+  "0004_deterministic_kpi_foundation.sql",
+  "0005_ai_assistant_foundation.sql"
 ]
   .map((file) => readFileSync(join(root, "migrations", file), "utf8"))
   .join("\n");
@@ -33,6 +34,7 @@ const tables = db
   .map((row) => row.name);
 
 assert.deepEqual(tables, [
+  "ai_assistant_runs",
   "b2b_activations",
   "campaigns",
   "company_kpi_targets",

@@ -83,6 +83,7 @@ describe("customer service frontend rendering", () => {
         items={[queueItem]}
         onLogCall={() => undefined}
         onOpenCustomer={() => undefined}
+        onPrepareCall={() => undefined}
       />
     );
 
@@ -100,6 +101,7 @@ describe("customer service frontend rendering", () => {
         items={[]}
         onLogCall={() => undefined}
         onOpenCustomer={() => undefined}
+        onPrepareCall={() => undefined}
       />
     );
 

@@ -76,6 +76,9 @@ class TestD1Database {
     this.database.exec(
       readFileSync(join(process.cwd(), "migrations/0004_deterministic_kpi_foundation.sql"), "utf8")
     );
+    this.database.exec(
+      readFileSync(join(process.cwd(), "migrations/0005_ai_assistant_foundation.sql"), "utf8")
+    );
   }
 
   exec(sql: string): void {
@@ -116,7 +119,7 @@ describe("D1 schema and seed data", () => {
     });
 
     expect(JSON.parse(output)).toMatchObject({
-      tables: 20,
+      tables: 21,
       customers: 20,
       users: 8,
       segments: 9,

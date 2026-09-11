@@ -75,6 +75,7 @@ curl http://localhost:8787/api/sales/tasks
 curl http://localhost:8787/api/reports/activity?period=week
 curl http://localhost:8787/api/dashboard?period=month
 curl http://localhost:8787/api/kpi?role=customer_service
+curl http://localhost:8787/api/settings
 ```
 
 The call logging and Customer Service to Sales handoff workflow is documented in
@@ -87,6 +88,10 @@ The Sales visit lifecycle and activity aggregates are documented in
 The deterministic KPI engine and management dashboard are documented in
 [`docs/kpi-engine.md`](docs/kpi-engine.md) and
 [`docs/management-dashboard.md`](docs/management-dashboard.md).
+
+The grounded commercial assistant and allowlisted business settings are documented in
+[`docs/ai-commercial-assistant.md`](docs/ai-commercial-assistant.md) and
+[`docs/settings.md`](docs/settings.md).
 
 ## Quality Checks
 

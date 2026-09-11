@@ -69,6 +69,9 @@ class TestD1Database {
           "utf8"
         )
       );
+      this.database.exec(
+        readFileSync(join(process.cwd(), "migrations/0005_ai_assistant_foundation.sql"), "utf8")
+      );
     }
     const seed = readFileSync(join(process.cwd(), "packages/db/seeds/demo.sql"), "utf8");
     this.database.exec(
@@ -506,6 +509,117 @@ describe("management KPI API", () => {
   });
 });
 
+describe("AI assistant and settings API", () => {
+  it("builds grounded mock assistance and reuses a matching cache entry", async () => {
+    vi.setSystemTime(new Date("2026-09-11T12:00:00.000Z"));
+    const env = createTestEnv();
+    const first = await postJson(env, "/api/ai/customer-assistant", {
+      customerId: "cus-006",
+      purpose: "CALL_PREPARATION"
+    });
+    const firstBody = (await first.json()) as {
+      data: {
+        status: string;
+        assistance: { priorityExplanation: string };
+        deterministic: { priority: { priorityLevel: string } };
+        meta: { cached: boolean };
+      };
+    };
+    expect(first.status).toBe(200);
+    expect(firstBody.data).toMatchObject({
+      status: "READY",
+      meta: { cached: false },
+      deterministic: { priority: { priorityLevel: "CRITICAL" } }
+    });
+    expect(firstBody.data.assistance.priorityExplanation).toContain("expected reorder interval");
+
+    const second = await postJson(env, "/api/ai/customer-assistant", {
+      customerId: "cus-006",
+      purpose: "CALL_PREPARATION"
+    });
+    expect((await second.json()) as object).toMatchObject({ data: { meta: { cached: true } } });
+  });
+
+  it("returns safe disabled and missing OpenAI configuration states", async () => {
+    const env = createTestEnv();
+    await patchJson(env, "/api/settings", { values: { "ai.enabled": "false" } });
+    const disabled = await postJson(env, "/api/ai/customer-assistant", { customerId: "cus-002" });
+    expect((await disabled.json()) as object).toMatchObject({
+      data: { status: "DISABLED", assistance: null }
+    });
+
+    await patchJson(env, "/api/settings", {
+      values: { "ai.enabled": "true", "ai.provider": "OPENAI" }
+    });
+    const unavailable = await postJson(env, "/api/ai/customer-assistant", {
+      customerId: "cus-002"
+    });
+    expect((await unavailable.json()) as object).toMatchObject({
+      data: { status: "UNAVAILABLE", assistance: null }
+    });
+  });
+
+  it("reads, validates, and applies allowlisted settings to live rules and KPI targets", async () => {
+    vi.setSystemTime(new Date("2026-09-11T12:00:00.000Z"));
+    const env = createTestEnv();
+    const settings = await worker.fetch(new Request("http://localhost/api/settings"), env);
+    expect((await settings.json()) as object).toMatchObject({
+      data: { aiAvailability: { provider: "MOCK", configured: true } }
+    });
+
+    const invalidThreshold = await patchJson(env, "/api/settings", {
+      values: { "customer_service.at_risk_days": 100 }
+    });
+    const invalidTimezone = await patchJson(env, "/api/settings", {
+      values: { "system.business_timezone": "Invalid/Zone" }
+    });
+    const arbitrary = await patchJson(env, "/api/settings", {
+      values: { "secret.api_key": "nope" }
+    });
+    expect(invalidThreshold.status).toBe(400);
+    expect(invalidTimezone.status).toBe(400);
+    expect(arbitrary.status).toBe(400);
+
+    const updated = await patchJson(env, "/api/settings", {
+      values: { "customer_service.daily_call_target": 12 }
+    });
+    expect(updated.status).toBe(200);
+    const queue = await worker.fetch(
+      new Request("http://localhost/api/customer-service/queue"),
+      env
+    );
+    expect((await queue.json()) as object).toMatchObject({
+      data: { summary: { dailyCallTarget: 12 } }
+    });
+
+    const targetUpdate = await patchJson(env, "/api/settings", {
+      companyTargets: [{ id: "company-sales-sep-2026", targetValue: 7000 }]
+    });
+    expect(targetUpdate.status).toBe(200);
+    const dashboard = await worker.fetch(
+      new Request("http://localhost/api/dashboard?period=month"),
+      env
+    );
+    expect((await dashboard.json()) as object).toMatchObject({
+      data: { dashboard: { salesTarget: 7000 } }
+    });
+  });
+
+  it("rejects invalid KPI weights and AI requests", async () => {
+    const env = createTestEnv();
+    const weights = await patchJson(env, "/api/settings", {
+      kpiTargets: [{ id: "kpit-cs-turnover-sep", targetValue: 1500, weight: 0.9 }]
+    });
+    const missingCustomer = await postJson(env, "/api/ai/customer-assistant", {});
+    const unknownCustomer = await postJson(env, "/api/ai/customer-assistant", {
+      customerId: "missing"
+    });
+    expect(weights.status).toBe(400);
+    expect(missingCustomer.status).toBe(400);
+    expect(unknownCustomer.status).toBe(404);
+  });
+});
+
 function postCall(env: Env, customerId: string, body: unknown): Promise<Response> {
   return worker.fetch(
     new Request(`http://localhost/api/customers/${customerId}/interactions`, {
@@ -523,6 +637,17 @@ function postJson(env: Env, path: string, body: unknown): Promise<Response> {
       body: JSON.stringify(body),
       headers: { "content-type": "application/json" },
       method: "POST"
+    }),
+    env
+  );
+}
+
+function patchJson(env: Env, path: string, body: unknown): Promise<Response> {
+  return worker.fetch(
+    new Request(`http://localhost${path}`, {
+      body: JSON.stringify(body),
+      headers: { "content-type": "application/json" },
+      method: "PATCH"
     }),
     env
   );

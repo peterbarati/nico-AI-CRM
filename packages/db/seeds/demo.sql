@@ -267,3 +267,14 @@ INSERT OR IGNORE INTO company_kpi_targets (id, kpi_definition_id, period_type, p
 INSERT OR IGNORE INTO system_config (key, value, value_type, description, updated_at) VALUES
   ('kpi.attribution_window_days', '30', 'number', 'Operational activity-to-order attribution window.', '2026-09-11T00:00:00.000Z'),
   ('kpi.reactivation_inactivity_days', '90', 'number', 'Minimum prior order inactivity for a reactivation outcome.', '2026-09-11T00:00:00.000Z');
+
+INSERT OR IGNORE INTO system_config (key, value, value_type, description, updated_at) VALUES
+  ('business.company_name', 'NICO', 'string', 'Company name shown in internal business settings.', '2026-09-11T00:00:00.000Z'),
+  ('business.default_currency', 'EUR', 'string', 'Default reporting currency.', '2026-09-11T00:00:00.000Z'),
+  ('business.default_reporting_period', 'month', 'string', 'Default management reporting period.', '2026-09-11T00:00:00.000Z'),
+  ('ai.enabled', 'true', 'boolean', 'Enables user-triggered advisory AI assistance.', '2026-09-11T00:00:00.000Z'),
+  ('ai.provider', 'MOCK', 'string', 'Configured AI provider: MOCK or OPENAI.', '2026-09-11T00:00:00.000Z'),
+  ('ai.model', 'gpt-5.4-mini', 'string', 'Configured provider model identifier.', '2026-09-11T00:00:00.000Z'),
+  ('ai.max_output_tokens', '700', 'number', 'Maximum provider output token budget.', '2026-09-11T00:00:00.000Z'),
+  ('ai.timeout_ms', '15000', 'number', 'Provider request timeout in milliseconds.', '2026-09-11T00:00:00.000Z'),
+  ('ai.cache_ttl_minutes', '15', 'number', 'Advisory response cache lifetime.', '2026-09-11T00:00:00.000Z');

@@ -1,4 +1,13 @@
 import {
+  MockAIProvider,
+  OpenAIProvider,
+  customerCommercialAssistantPromptVersion,
+  validateCustomerAssistantOutput,
+  type AIProvider,
+  type AssistantPurpose,
+  type CustomerAssistantContext
+} from "@nico-ai-crm/ai-assistant";
+import {
   defaultCustomerServiceRulesConfig,
   evaluateCustomerServicePriority,
   type CustomerServicePriorityLevel,
@@ -13,7 +22,10 @@ import {
   getSystemConfigByPrefix,
   getSystemConfigValue,
   getActivityReport,
+  getCachedAssistantRun,
+  getCustomerAssistantSupplement,
   getManagementKpiData,
+  recordAssistantRun,
   getSalesTaskQueueItem,
   getSalesVisitBySourceTaskId,
   listCustomerServiceCandidates,
@@ -61,6 +73,7 @@ import {
   type ValidationIssue
 } from "@nico-ai-crm/shared";
 import { getCustomerServiceActorId, getSalesActorId } from "./actor";
+import { getSettingsData, validateAndUpdateSettings } from "./settings";
 
 export interface Env {
   DB: D1Database;
@@ -68,6 +81,7 @@ export interface Env {
   APP_ENV?: string;
   DEMO_CUSTOMER_SERVICE_USER_ID?: string;
   DEMO_SALES_USER_ID?: string;
+  OPENAI_API_KEY?: string;
 }
 
 const defaultBusinessTimezone = "Europe/Bratislava";
@@ -210,6 +224,18 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
     return jsonResponse(createHealthResponse());
   }
 
+  if (url.pathname === "/api/ai/customer-assistant" && request.method === "POST") {
+    return handleCustomerAssistant(request, env, context);
+  }
+
+  if (url.pathname === "/api/settings" && request.method === "PATCH") {
+    const body = await readJsonBody(request);
+    if (body instanceof Response) return body;
+    const result = await validateAndUpdateSettings(context, body, new Date().toISOString());
+    if (result.issues.length) return validationError(result.issues, 400);
+    return ok(await getSettingsData(context, Boolean(env.OPENAI_API_KEY)));
+  }
+
   const interactionWriteRoute = url.pathname.match(/^\/api\/customers\/([^/]+)\/interactions$/);
   if (interactionWriteRoute && request.method === "POST") {
     let body: unknown;
@@ -338,6 +364,10 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
       return badRequest("Supported roles are sales_rep and customer_service.");
     }
     return ok(await listActiveUsersByRole(context, role));
+  }
+
+  if (url.pathname === "/api/settings") {
+    return ok(await getSettingsData(context, Boolean(env.OPENAI_API_KEY)));
   }
 
   if (url.pathname === "/api/sales/tasks") {
@@ -520,6 +550,280 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
   }
 
   return notFound();
+}
+
+async function handleCustomerAssistant(
+  request: Request,
+  env: Env,
+  context: ReturnType<typeof createDatabaseContext>
+): Promise<Response> {
+  const body = await readJsonBody(request);
+  if (body instanceof Response) return body;
+  if (
+    !body ||
+    typeof body !== "object" ||
+    !("customerId" in body) ||
+    typeof body.customerId !== "string" ||
+    !body.customerId.trim()
+  ) {
+    return validationError([{ field: "customerId", message: "Customer ID is required." }], 400);
+  }
+  const purposeValue = "purpose" in body ? body.purpose : "CALL_PREPARATION";
+  if (
+    purposeValue !== "CALL_PREPARATION" &&
+    purposeValue !== "CUSTOMER_OVERVIEW" &&
+    purposeValue !== "SALES_VISIT_PREPARATION"
+  ) {
+    return validationError([{ field: "purpose", message: "Assistant purpose is invalid." }], 400);
+  }
+  const customerId = body.customerId.trim();
+  const purpose = purposeValue as AssistantPurpose;
+  const now = new Date();
+  const [overview, supplement, configRows, aiRows] = await Promise.all([
+    getCustomerOverview(context, customerId),
+    getCustomerAssistantSupplement(context, customerId, now.toISOString()),
+    getSystemConfigByPrefix(context, "customer_service."),
+    getSystemConfigByPrefix(context, "ai.")
+  ]);
+  if (!overview) return notFound("Customer not found.");
+  const rules = applyCustomerServiceConfigRows(defaultCustomerServiceRulesConfig, configRows);
+  const priority = evaluateCustomerServicePriority(
+    {
+      active: overview.customer.active,
+      averageReorderDays: overview.metrics?.averageReorderDays ?? null,
+      b2bStatus: overview.customer.b2bStatus,
+      campaignClickedWithoutConversion:
+        supplement.campaign?.clicked === true && supplement.campaign.converted === false,
+      customerId,
+      daysSinceLastOrder: overview.metrics?.daysSinceLastOrder ?? null,
+      lastInteractionAt: overview.latestInteractions[0]?.createdAt ?? null,
+      openTaskCount: overview.openTasks.length,
+      overdueTaskCount: supplement.overdueTaskIds.length,
+      previousTurnover90d: overview.metrics?.previousTurnover90d ?? 0,
+      segmentCodes: overview.segments.map((segment) => segment.code),
+      turnover90d: overview.metrics?.turnover90d ?? 0
+    },
+    rules,
+    now
+  );
+  const deterministic = { priority, commercial: overview.metrics, segments: overview.segments };
+  const config = parseAIConfig(aiRows);
+  if (!config.enabled)
+    return ok({
+      status: "DISABLED",
+      assistance: null,
+      deterministic,
+      message: "AI assistance is disabled. Deterministic CRM guidance remains available."
+    });
+  if (config.provider === "OPENAI" && !env.OPENAI_API_KEY) {
+    return ok({
+      status: "UNAVAILABLE",
+      assistance: null,
+      deterministic,
+      message: "OpenAI is selected but its environment secret is not configured."
+    });
+  }
+  const assistantContext = buildAssistantContext(overview, supplement, priority, purpose);
+  const fingerprint = await fingerprintContext({
+    context: assistantContext,
+    provider: config.provider,
+    model: config.model,
+    promptVersion: customerCommercialAssistantPromptVersion
+  });
+  const cached = await getCachedAssistantRun(
+    context,
+    customerId,
+    purpose,
+    fingerprint,
+    now.toISOString()
+  );
+  if (cached) {
+    try {
+      return ok({
+        status: "READY",
+        assistance: validateCustomerAssistantOutput(JSON.parse(cached.responseJson)),
+        deterministic,
+        meta: {
+          cached: true,
+          provider: cached.provider,
+          model: cached.model,
+          promptVersion: customerCommercialAssistantPromptVersion,
+          createdAt: cached.createdAt
+        }
+      });
+    } catch {
+      // Ignore invalid historical cache entries and regenerate safely.
+    }
+  }
+  const provider: AIProvider =
+    config.provider === "OPENAI"
+      ? new OpenAIProvider(env.OPENAI_API_KEY as string)
+      : new MockAIProvider();
+  const started = Date.now();
+  try {
+    const result = await provider.generateCustomerAssistance(assistantContext, config);
+    const createdAt = new Date().toISOString();
+    await safeRecordAssistantRun(context, {
+      id: crypto.randomUUID(),
+      customerId,
+      purpose,
+      provider: result.provider,
+      model: result.model,
+      promptVersion: customerCommercialAssistantPromptVersion,
+      contextFingerprint: fingerprint,
+      status: "success",
+      responseJson: JSON.stringify(result.output),
+      errorCode: null,
+      latencyMs: Date.now() - started,
+      inputTokens: result.inputTokens,
+      outputTokens: result.outputTokens,
+      createdAt,
+      expiresAt: new Date(Date.now() + config.cacheTtlMinutes * 60_000).toISOString()
+    });
+    return ok({
+      status: "READY",
+      assistance: result.output,
+      deterministic,
+      meta: {
+        cached: false,
+        provider: result.provider,
+        model: result.model,
+        promptVersion: customerCommercialAssistantPromptVersion,
+        createdAt
+      }
+    });
+  } catch (error) {
+    const code =
+      error instanceof DOMException && error.name === "AbortError"
+        ? "AI_TIMEOUT"
+        : error instanceof Error && error.message.includes("invalid")
+          ? "AI_INVALID_RESPONSE"
+          : "AI_PROVIDER_ERROR";
+    await safeRecordAssistantRun(context, {
+      id: crypto.randomUUID(),
+      customerId,
+      purpose,
+      provider: config.provider,
+      model: config.model,
+      promptVersion: customerCommercialAssistantPromptVersion,
+      contextFingerprint: fingerprint,
+      status: "failure",
+      responseJson: null,
+      errorCode: code,
+      latencyMs: Date.now() - started,
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date().toISOString()
+    });
+    return ok({
+      status: "UNAVAILABLE",
+      assistance: null,
+      deterministic,
+      message:
+        code === "AI_TIMEOUT"
+          ? "AI assistance timed out. Deterministic CRM guidance remains available."
+          : "AI assistance is temporarily unavailable. Deterministic CRM guidance remains available."
+    });
+  }
+}
+
+async function safeRecordAssistantRun(
+  context: ReturnType<typeof createDatabaseContext>,
+  input: Parameters<typeof recordAssistantRun>[1]
+) {
+  try {
+    await recordAssistantRun(context, input);
+  } catch (error) {
+    console.error("AI audit metadata could not be stored.", error);
+  }
+}
+
+function buildAssistantContext(
+  overview: NonNullable<Awaited<ReturnType<typeof getCustomerOverview>>>,
+  supplement: Awaited<ReturnType<typeof getCustomerAssistantSupplement>>,
+  priority: ReturnType<typeof evaluateCustomerServicePriority>,
+  purpose: AssistantPurpose
+): CustomerAssistantContext {
+  const metrics = overview.metrics;
+  return {
+    contextVersion: "customer-commercial-context-v1",
+    purpose,
+    customer: {
+      customerId: overview.customer.id,
+      companyName: overview.customer.companyName,
+      city: overview.customer.city,
+      assignedSalesRepName: overview.customer.assignedSalesRep?.name ?? null,
+      b2bStatus: overview.customer.b2bStatus
+    },
+    commercial: {
+      lastOrderDate: metrics?.lastOrderDate ?? null,
+      daysSinceLastOrder: metrics?.daysSinceLastOrder ?? null,
+      averageReorderDays: metrics?.averageReorderDays ?? null,
+      turnover30d: metrics?.turnover30d ?? 0,
+      turnover90d: metrics?.turnover90d ?? 0,
+      previousTurnover90d: metrics?.previousTurnover90d ?? 0,
+      turnover365d: metrics?.turnover365d ?? 0,
+      salesTrend: overview.customer.salesTrend,
+      averageOrderValue: metrics?.averageOrderValue ?? null,
+      lifetimeTurnover: metrics?.lifetimeTurnover ?? 0,
+      currency: overview.latestOrders[0]?.currency ?? "EUR"
+    },
+    priority: {
+      score: priority.priorityScore,
+      level: priority.priorityLevel,
+      reasons: priority.reasons.map((reason) => ({
+        code: reason.code,
+        message: reason.message,
+        value: reason.value
+      })),
+      deterministicActions: priority.recommendedActions
+    },
+    segments: overview.segments.map((segment) => ({ code: segment.code, reason: segment.reason })),
+    recentInteractions: overview.latestInteractions.map((interaction) => ({
+      type: interaction.interactionType,
+      reason: interaction.reason,
+      result: interaction.result,
+      occurredAt: interaction.createdAt
+    })),
+    latestVisit: supplement.latestVisit,
+    latestOrders: overview.latestOrders.map((order) => ({
+      orderDate: order.orderDate,
+      netAmount: order.netAmount,
+      currency: order.currency,
+      status: order.status
+    })),
+    openTasks: overview.openTasks.map((task) => ({
+      title: task.title,
+      priority: task.priority,
+      dueAt: task.dueAt,
+      overdue: supplement.overdueTaskIds.includes(task.id)
+    })),
+    campaign: supplement.campaign,
+    purchasedProducts: supplement.purchasedProducts,
+    purchasedCategories: supplement.purchasedCategories,
+    crossSellSignals: overview.segments
+      .filter((segment) => segment.code === "CROSS_SELL")
+      .map((segment) => segment.reason ?? segment.code)
+  };
+}
+
+function parseAIConfig(rows: Array<{ key: string; value: string }>) {
+  const values = Object.fromEntries(rows.map((row) => [row.key, row.value]));
+  return {
+    enabled: values["ai.enabled"] !== "false",
+    provider: values["ai.provider"] === "OPENAI" ? ("OPENAI" as const) : ("MOCK" as const),
+    model: values["ai.model"] || "mock-commercial-v1",
+    maxOutputTokens: Math.max(100, Math.min(4000, Number(values["ai.max_output_tokens"]) || 700)),
+    timeoutMs: Math.max(1000, Math.min(60000, Number(values["ai.timeout_ms"]) || 15000)),
+    cacheTtlMinutes: Math.max(1, Math.min(1440, Number(values["ai.cache_ttl_minutes"]) || 15))
+  };
+}
+
+async function fingerprintContext(value: unknown): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(JSON.stringify(value))
+  );
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 async function readJsonBody(request: Request): Promise<unknown | Response> {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { CallReasonCode } from "@nico-ai-crm/shared";
 import { LogCallForm } from "../interactions/LogCallForm";
+import { CommercialAssistantPanel } from "../ai/CommercialAssistantPanel";
 import { fetchCustomerServiceQueue } from "./api";
 import { CustomerServiceErrorState } from "./CustomerServiceErrorState";
 import { CustomerServiceQueueTable } from "./CustomerServiceQueueTable";
@@ -23,6 +24,7 @@ export function CustomerServicePage({ onNavigate }: CustomerServicePageProps) {
   const [error, setError] = useState<string | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerServiceQueueItem | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [assistantCustomer, setAssistantCustomer] = useState<CustomerServiceQueueItem | null>(null);
 
   const loadQueue = useCallback(async () => {
     setLoading(true);
@@ -86,6 +88,7 @@ export function CustomerServicePage({ onNavigate }: CustomerServicePageProps) {
             items={items}
             onLogCall={setSelectedCustomer}
             onOpenCustomer={(customerId) => onNavigate(`/customers/${customerId}`)}
+            onPrepareCall={setAssistantCustomer}
           />
         </>
       ) : null}
@@ -102,6 +105,26 @@ export function CustomerServicePage({ onNavigate }: CustomerServicePageProps) {
           }}
           suggestedReason={toCallReason(selectedCustomer)}
         />
+      ) : null}
+      {assistantCustomer ? (
+        <div className="modal-backdrop" role="presentation">
+          <div className="modal-card assistant-modal" role="dialog" aria-modal="true">
+            <div className="modal-header">
+              <button
+                className="link-button"
+                onClick={() => setAssistantCustomer(null)}
+                type="button"
+              >
+                Close
+              </button>
+            </div>
+            <CommercialAssistantPanel
+              compact
+              customerId={assistantCustomer.customerId}
+              customerName={assistantCustomer.companyName}
+            />
+          </div>
+        </div>
       ) : null}
     </section>
   );

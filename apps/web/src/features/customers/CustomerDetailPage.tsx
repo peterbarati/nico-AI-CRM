@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { LogCallForm } from "../interactions/LogCallForm";
+import { CommercialAssistantPanel } from "../ai/CommercialAssistantPanel";
 import {
   fetchCustomerInteractions,
   fetchCustomerOrders,
@@ -106,6 +107,10 @@ export function CustomerDetailPage({ customerId, onBack }: CustomerDetailPagePro
       <CustomerMetricsCards
         metrics={state.overview.metrics}
         salesTrend={state.overview.customer.salesTrend}
+      />
+      <CommercialAssistantPanel
+        customerId={state.overview.customer.id}
+        customerName={state.overview.customer.companyName}
       />
       <CustomerDetailSections
         interactions={state.interactions}
