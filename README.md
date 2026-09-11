@@ -2,7 +2,7 @@
 
 Internal CRM and AI-assisted customer service platform.
 
-Phase 1 is intentionally self-contained and uses mock/demo data. It does not connect to Money S4, OpenAI, or any authentication provider.
+The current development foundation is self-contained and uses mock/demo CRM data. It does not connect to Money S4. AI and authentication both use explicit mock providers locally, with production provider boundaries prepared but not deployed.
 
 ## Stack
 
@@ -19,6 +19,7 @@ apps/
   web/       React frontend
   worker/    Cloudflare Worker API
 packages/
+  auth/      authentication provider and authorization contracts
   db/        D1 schema/client boundary
   shared/    shared types and constants
   erp-contract/
@@ -53,6 +54,7 @@ npm run dev
 
 The Worker runs on `http://localhost:8787`.
 The frontend runs on `http://localhost:5173` and proxies `/api/*` to the Worker.
+Choose one of the deterministic CRM users on the local sign-in screen.
 
 Health endpoint:
 
@@ -60,22 +62,14 @@ Health endpoint:
 curl http://localhost:8787/api/health
 ```
 
-Demo API endpoints:
+Demo API endpoints require an explicit mock actor when called outside the browser:
 
 ```bash
-curl "http://localhost:8787/api/customers?page=1&pageSize=10"
-curl "http://localhost:8787/api/customers?search=Blue%20Pine"
-curl http://localhost:8787/api/customers/cus-002
-curl http://localhost:8787/api/customers/cus-002/orders
-curl http://localhost:8787/api/segments
-curl http://localhost:8787/api/tasks
-curl http://localhost:8787/api/customer-service/queue
-curl http://localhost:8787/api/users?role=sales_rep
-curl http://localhost:8787/api/sales/tasks
-curl http://localhost:8787/api/reports/activity?period=week
-curl http://localhost:8787/api/dashboard?period=month
-curl http://localhost:8787/api/kpi?role=customer_service
-curl http://localhost:8787/api/settings
+curl -H "X-Mock-User-Id: usr-admin-001" "http://localhost:8787/api/customers?page=1&pageSize=10"
+curl -H "X-Mock-User-Id: usr-cs-001" http://localhost:8787/api/customer-service/queue
+curl -H "X-Mock-User-Id: usr-sales-002" http://localhost:8787/api/sales/tasks
+curl -H "X-Mock-User-Id: usr-manager-001" http://localhost:8787/api/dashboard?period=month
+curl -H "X-Mock-User-Id: usr-admin-001" http://localhost:8787/api/settings
 ```
 
 The call logging and Customer Service to Sales handoff workflow is documented in
@@ -92,6 +86,10 @@ The deterministic KPI engine and management dashboard are documented in
 The grounded commercial assistant and allowlisted business settings are documented in
 [`docs/ai-commercial-assistant.md`](docs/ai-commercial-assistant.md) and
 [`docs/settings.md`](docs/settings.md).
+
+Authentication and role-based access rules are documented in
+[`docs/authentication.md`](docs/authentication.md) and
+[`docs/authorization.md`](docs/authorization.md).
 
 ## Quality Checks
 
@@ -111,11 +109,12 @@ Before deployment, create Cloudflare resources and update `wrangler.toml` as nee
 - Replace the placeholder D1 `database_id`.
 - Configure Cloudflare Pages or Workers deployment from the GitHub repository.
 - Add secrets with `wrangler secret put`, never by committing them.
+- Protect the application with Cloudflare Access and configure OIDC issuer, audience, JWKS, and identity mappings.
 - Coordinate the future Money S4 integration with the client's IT department.
 
 ## Explicit Phase 1 Non-Goals
 
 - No Money S4 connection
 - No OpenAI API calls
-- No authentication
+- No custom password database
 - No production deployment

@@ -4,13 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev --port 8787",
+    "dev": "wrangler dev --port 8787 --var AUTH_MODE:mock --var APP_ENV:development",
     "build": "wrangler deploy --dry-run --outdir dist",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "cf-typegen": "wrangler types"
   },
   "dependencies": {
     "@nico-ai-crm/ai-assistant": "0.1.0",
+    "@nico-ai-crm/auth": "0.1.0",
     "@nico-ai-crm/crm-rules": "0.1.0",
     "@nico-ai-crm/db": "0.1.0",
     "@nico-ai-crm/erp-contract": "0.1.0",

@@ -79,6 +79,9 @@ class TestD1Database {
     this.database.exec(
       readFileSync(join(process.cwd(), "migrations/0005_ai_assistant_foundation.sql"), "utf8")
     );
+    this.database.exec(
+      readFileSync(join(process.cwd(), "migrations/0006_auth_foundation.sql"), "utf8")
+    );
   }
 
   exec(sql: string): void {

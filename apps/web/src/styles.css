@@ -862,6 +862,90 @@ textarea {
   color: #24604a;
 }
 
+.actor-menu {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.actor-menu > div {
+  display: grid;
+  text-align: right;
+}
+
+.actor-menu span {
+  color: #667587;
+  font-size: 0.78rem;
+  text-transform: capitalize;
+}
+
+.actor-menu button {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #24364b;
+}
+
+.auth-screen {
+  align-items: center;
+  background: #eef2f6;
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.auth-panel {
+  background: #ffffff;
+  border: 1px solid #d9e0e8;
+  border-radius: 8px;
+  box-shadow: 0 16px 40px rgb(24 39 58 / 10%);
+  max-width: 520px;
+  padding: 32px;
+  width: 100%;
+}
+
+.auth-panel h1 {
+  margin: 6px 0 24px;
+}
+
+.auth-message {
+  background: #fff5e6;
+  border-left: 3px solid #bd741a;
+  color: #714611;
+  padding: 10px 12px;
+}
+
+.mock-user-list {
+  display: grid;
+  gap: 8px;
+}
+
+.mock-user-list button {
+  align-items: center;
+  background: #f7f9fb;
+  border: 1px solid #d9e0e8;
+  color: #1f3147;
+  display: flex;
+  justify-content: space-between;
+  text-align: left;
+}
+
+.mock-user-list button span {
+  color: #667587;
+  font-size: 0.78rem;
+  text-transform: capitalize;
+}
+
+.primary-link {
+  background: #186b52;
+  border-radius: 6px;
+  color: #ffffff;
+  display: inline-block;
+  font-weight: 800;
+  padding: 10px 14px;
+  text-decoration: none;
+}
+
 @media (max-width: 1120px) {
   .app-frame {
     grid-template-columns: 1fr;

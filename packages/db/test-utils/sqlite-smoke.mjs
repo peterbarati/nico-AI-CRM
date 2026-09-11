@@ -9,7 +9,8 @@ const migrationSql = [
   "0002_interaction_idempotency.sql",
   "0003_sales_workflow_links.sql",
   "0004_deterministic_kpi_foundation.sql",
-  "0005_ai_assistant_foundation.sql"
+  "0005_ai_assistant_foundation.sql",
+  "0006_auth_foundation.sql"
 ]
   .map((file) => readFileSync(join(root, "migrations", file), "utf8"))
   .join("\n");
@@ -58,7 +59,7 @@ assert.deepEqual(tables, [
 ]);
 
 assert.equal(db.prepare("SELECT COUNT(*) AS total FROM customers").get().total, 20);
-assert.equal(db.prepare("SELECT COUNT(*) AS total FROM users").get().total, 8);
+assert.equal(db.prepare("SELECT COUNT(*) AS total FROM users").get().total, 9);
 assert.equal(db.prepare("SELECT COUNT(*) AS total FROM customer_segments").get().total, 9);
 
 assert.throws(() => {

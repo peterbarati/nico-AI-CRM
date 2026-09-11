@@ -101,10 +101,11 @@ export async function recordAssistantRun(
 ): Promise<void> {
   await context.db
     .prepare(
-      `INSERT INTO ai_assistant_runs (id, customer_id, purpose, provider, model, prompt_version, context_fingerprint, status, response_json, error_code, latency_ms, input_tokens, output_tokens, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO ai_assistant_runs (id, actor_user_id, customer_id, purpose, provider, model, prompt_version, context_fingerprint, status, response_json, error_code, latency_ms, input_tokens, output_tokens, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       input.id,
+      input.actorUserId,
       input.customerId,
       input.purpose,
       input.provider,

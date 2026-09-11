@@ -134,6 +134,6 @@ The first migration creates indexes for common CRM reads:
 
 - Add metrics refresh services inside `packages/db` or a dedicated domain package before exposing metrics-heavy dashboards.
 - Add segment rule configuration and deterministic segment calculation before adding AI recommendations.
-- Add auth tables or identity mapping when authentication is explicitly requested.
+- Extend the normalized provider identity mapping from migration `0006` only when production SSO requirements are confirmed.
 - Add concrete ERP provider synchronization only in Phase 2 with the client's IT department.
 - Consider queues/workflows only when import or calculation jobs become long-running.

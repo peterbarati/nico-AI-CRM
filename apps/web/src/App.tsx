@@ -7,20 +7,42 @@ import { SalesPage } from "./features/sales/SalesPage";
 import { ActivityReportPage } from "./features/reports/activity/ActivityReportPage";
 import { ManagementDashboardPage } from "./features/dashboard/ManagementDashboardPage";
 import { SettingsPage } from "./features/settings/SettingsPage";
+import { useAuth } from "./features/auth/AuthContext";
+import { ForbiddenState } from "./features/auth/ForbiddenState";
+import { UsersPage } from "./features/users/UsersPage";
+import type { Permission } from "@nico-ai-crm/auth";
 
-const navItems: NavItem[] = [
-  { label: "Dashboard", path: "/" },
-  { label: "Customers", path: "/customers" },
-  { label: "Tasks", path: "/tasks" },
-  { label: "Customer Service", path: "/customer-service" },
-  { label: "Sales", path: "/sales" },
-  { label: "Campaigns", path: "/campaigns" },
-  { label: "Reports", path: "/reports" },
-  { label: "Settings", path: "/settings" }
+export const navItems: Array<NavItem & { permission: Permission }> = [
+  { label: "Dashboard", path: "/", permission: "DASHBOARD_READ" },
+  { label: "Customers", path: "/customers", permission: "CUSTOMERS_READ" },
+  { label: "Tasks", path: "/tasks", permission: "TASKS_READ" },
+  {
+    label: "Customer Service",
+    path: "/customer-service",
+    permission: "CUSTOMER_SERVICE_QUEUE_READ"
+  },
+  { label: "Sales", path: "/sales", permission: "SALES_QUEUE_READ" },
+  { label: "Campaigns", path: "/campaigns", permission: "CUSTOMERS_READ" },
+  { label: "Reports", path: "/reports", permission: "REPORTS_READ" },
+  { label: "Settings", path: "/settings", permission: "SETTINGS_READ" },
+  { label: "Users", path: "/users", permission: "USER_ADMIN" }
 ];
 
 export function App() {
+  const { actor, logout } = useAuth();
   const [path, setPath] = useState(() => window.location.pathname);
+  const visibleNavItems = useMemo(
+    () => navItems.filter((item) => actor.permissions.includes(item.permission)),
+    [actor.permissions]
+  );
+
+  useEffect(() => {
+    if (path !== "/" || actor.permissions.includes("DASHBOARD_READ")) return;
+    const firstPath = visibleNavItems[0]?.path;
+    if (!firstPath) return;
+    window.history.replaceState({}, "", firstPath);
+    setPath(firstPath);
+  }, [actor.permissions, path, visibleNavItems]);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -33,10 +55,10 @@ export function App() {
 
   const activeItem = useMemo(
     () =>
-      navItems.find((item) => item.path !== "/" && path.startsWith(item.path)) ??
-      navItems.find((item) => item.path === "/") ??
-      navItems[0],
-    [path]
+      visibleNavItems.find((item) => item.path !== "/" && path.startsWith(item.path)) ??
+      visibleNavItems.find((item) => item.path === "/") ??
+      visibleNavItems[0],
+    [path, visibleNavItems]
   );
 
   function navigate(nextPath: string) {
@@ -45,8 +67,11 @@ export function App() {
   }
 
   const customerDetailMatch = path.match(/^\/customers\/([^/]+)$/);
+  const permission = permissionForPath(path);
   const page =
-    path === "/" || path === "/dashboard" ? (
+    permission && !actor.permissions.includes(permission) ? (
+      <ForbiddenState />
+    ) : path === "/" || path === "/dashboard" ? (
       <ManagementDashboardPage />
     ) : path === "/customers" || customerDetailMatch ? (
       <CustomersPage customerId={customerDetailMatch?.[1]} onNavigate={navigate} />
@@ -57,14 +82,35 @@ export function App() {
     ) : path === "/reports/activity" || path === "/reports" ? (
       <ActivityReportPage />
     ) : path === "/settings" ? (
-      <SettingsPage />
+      <SettingsPage canWrite={actor.permissions.includes("SETTINGS_WRITE")} />
+    ) : path === "/users" ? (
+      <UsersPage />
     ) : (
       <ComingSoonPage title={activeItem.label} />
     );
 
   return (
-    <AppShell activePath={activeItem.path} navItems={navItems} onNavigate={navigate}>
+    <AppShell
+      activePath={activeItem?.path ?? ""}
+      actor={actor}
+      navItems={visibleNavItems}
+      onLogout={() => void logout()}
+      onNavigate={navigate}
+    >
       {page}
     </AppShell>
   );
+}
+
+export function permissionForPath(path: string): Permission | null {
+  if (path === "/" || path === "/dashboard") return "DASHBOARD_READ";
+  if (path.startsWith("/customers")) return "CUSTOMERS_READ";
+  if (path === "/tasks") return "TASKS_READ";
+  if (path === "/campaigns") return "CUSTOMERS_READ";
+  if (path === "/customer-service") return "CUSTOMER_SERVICE_QUEUE_READ";
+  if (path === "/sales") return "SALES_QUEUE_READ";
+  if (path.startsWith("/reports")) return "REPORTS_READ";
+  if (path === "/settings") return "SETTINGS_READ";
+  if (path === "/users") return "USER_ADMIN";
+  return null;
 }

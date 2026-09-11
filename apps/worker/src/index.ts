@@ -7,6 +7,7 @@ import {
   type AssistantPurpose,
   type CustomerAssistantContext
 } from "@nico-ai-crm/ai-assistant";
+import type { AuthenticatedActor, Permission } from "@nico-ai-crm/auth";
 import {
   defaultCustomerServiceRulesConfig,
   evaluateCustomerServicePriority,
@@ -24,6 +25,8 @@ import {
   getActivityReport,
   getCachedAssistantRun,
   getCustomerAssistantSupplement,
+  isCustomerAssignedToUser,
+  listAuthUsers,
   getManagementKpiData,
   recordAssistantRun,
   getSalesTaskQueueItem,
@@ -72,15 +75,25 @@ import {
   type HealthResponse,
   type ValidationIssue
 } from "@nico-ai-crm/shared";
-import { getCustomerServiceActorId, getSalesActorId } from "./actor";
+import {
+  AuthRequestError,
+  authenticateActor,
+  requirePermission,
+  requireSameOriginForMockCookie
+} from "./auth";
+import { authErrorResponse, handlePublicAuthRoute, safeActorResponse } from "./auth-routes";
 import { getSettingsData, validateAndUpdateSettings } from "./settings";
 
 export interface Env {
   DB: D1Database;
   ASSETS: Fetcher;
   APP_ENV?: string;
-  DEMO_CUSTOMER_SERVICE_USER_ID?: string;
-  DEMO_SALES_USER_ID?: string;
+  AUTH_MODE?: string;
+  AUTH_ISSUER?: string;
+  AUTH_AUDIENCE?: string;
+  AUTH_JWKS_URL?: string;
+  AUTH_LOGIN_URL?: string;
+  AUTH_LOGOUT_URL?: string;
   OPENAI_API_KEY?: string;
 }
 
@@ -208,6 +221,56 @@ function isSortDirection(value: string | null): value is SortDirection {
   return value === "asc" || value === "desc";
 }
 
+function getRequiredPermission(request: Request, pathname: string): Permission | null {
+  if (request.method === "POST" && /^\/api\/customers\/[^/]+\/interactions$/.test(pathname)) {
+    return "CUSTOMER_INTERACTIONS_WRITE";
+  }
+  if (request.method === "POST" && pathname.startsWith("/api/sales/")) {
+    return "SALES_VISIT_WRITE";
+  }
+  if (request.method === "POST" && pathname === "/api/ai/customer-assistant") {
+    return "AI_ASSISTANT_USE";
+  }
+  if (request.method === "PATCH" && pathname === "/api/settings") return "SETTINGS_WRITE";
+  if (request.method !== "GET") return null;
+  if (pathname === "/api/settings") return "SETTINGS_READ";
+  if (pathname === "/api/customer-service/queue") return "CUSTOMER_SERVICE_QUEUE_READ";
+  if (pathname.startsWith("/api/sales/")) return "SALES_QUEUE_READ";
+  if (pathname === "/api/dashboard") return "DASHBOARD_READ";
+  if (pathname === "/api/reports/activity") return "REPORTS_READ";
+  if (pathname === "/api/kpi" || pathname.startsWith("/api/kpi/")) return "KPI_READ";
+  if (pathname === "/api/tasks") return "TASKS_READ";
+  if (pathname === "/api/users") return "USER_REFERENCES_READ";
+  if (pathname === "/api/admin/users") return "USER_ADMIN";
+  if (
+    pathname === "/api/customers" ||
+    pathname.startsWith("/api/customers/") ||
+    pathname === "/api/segments"
+  ) {
+    return "CUSTOMERS_READ";
+  }
+  return null;
+}
+
+async function requireCustomerScope(
+  context: ReturnType<typeof createDatabaseContext>,
+  actor: AuthenticatedActor,
+  customerId: string
+) {
+  if (actor.role !== "sales_rep") return;
+  if (!(await isCustomerAssignedToUser(context, customerId, actor.id))) {
+    throw new AuthRequestError(403, "FORBIDDEN", "You do not have access to this customer.");
+  }
+}
+
+async function getDefaultCustomerServiceUserId(
+  context: ReturnType<typeof createDatabaseContext>
+): Promise<string> {
+  const users = await listActiveUsersByRole(context, "customer_service");
+  if (!users[0]) throw new Error("No active Customer Service user is available for handoff.");
+  return users[0].id;
+}
+
 export function createHealthResponse(): HealthResponse {
   return {
     ok: true,
@@ -224,8 +287,27 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
     return jsonResponse(createHealthResponse());
   }
 
+  const publicAuthResponse = await handlePublicAuthRoute(request, env, context, url);
+  if (publicAuthResponse) return publicAuthResponse;
+
+  let actor: AuthenticatedActor;
+  try {
+    actor = await authenticateActor(request, env, context);
+    if (url.pathname === "/api/auth/me" && request.method === "GET") {
+      return safeActorResponse(actor);
+    }
+    const permission = getRequiredPermission(request, url.pathname);
+    if (permission) requirePermission(actor, permission);
+    if (!["GET", "HEAD", "OPTIONS"].includes(request.method)) {
+      requireSameOriginForMockCookie(request);
+    }
+  } catch (error) {
+    if (error instanceof AuthRequestError) return authErrorResponse(error);
+    throw error;
+  }
+
   if (url.pathname === "/api/ai/customer-assistant" && request.method === "POST") {
-    return handleCustomerAssistant(request, env, context);
+    return handleCustomerAssistant(request, env, context, actor);
   }
 
   if (url.pathname === "/api/settings" && request.method === "PATCH") {
@@ -253,7 +335,7 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
 
     try {
       const result = await createCallWorkflow(context, {
-        actorUserId: getCustomerServiceActorId(env),
+        actorUserId: actor.id,
         createdAt: now.toISOString(),
         customerId: decodeURIComponent(interactionWriteRoute[1]),
         interactionId: crypto.randomUUID(),
@@ -284,7 +366,7 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
     if (!validation.success) return validationError(validation.issues);
     try {
       const result = await scheduleSalesVisit(context, {
-        actorUserId: getSalesActorId(env),
+        actorUserId: actor.id,
         createdAt: now.toISOString(),
         request: validation.data,
         sourceTaskId: decodeURIComponent(scheduleVisitRoute[1]),
@@ -302,7 +384,7 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
       const result = await startSalesVisit(
         context,
         decodeURIComponent(startVisitRoute[1]),
-        getSalesActorId(env),
+        actor.id,
         new Date().toISOString()
       );
       return ok(result);
@@ -320,9 +402,9 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
     if (!validation.success) return validationError(validation.issues);
     try {
       const result = await completeSalesVisit(context, {
-        actorUserId: getSalesActorId(env),
+        actorUserId: actor.id,
         completedAt: now.toISOString(),
-        customerServiceUserId: getCustomerServiceActorId(env),
+        customerServiceUserId: await getDefaultCustomerServiceUserId(context),
         followUpTaskId: crypto.randomUUID(),
         request: validation.data,
         visitId: decodeURIComponent(completeVisitRoute[1])
@@ -338,7 +420,11 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
   }
 
   if (url.pathname === "/api/customers") {
-    const result = await listCustomers(context, parseCustomerListQuery(url));
+    const query = parseCustomerListQuery(url);
+    const result = await listCustomers(context, {
+      ...query,
+      assignedSalesRepId: actor.role === "sales_rep" ? actor.id : query.assignedSalesRepId
+    });
     return jsonResponse({ ok: true, data: result.items, pagination: result.pagination });
   }
 
@@ -363,7 +449,22 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
     if (role !== "sales_rep" && role !== "customer_service") {
       return badRequest("Supported roles are sales_rep and customer_service.");
     }
-    return ok(await listActiveUsersByRole(context, role));
+    const users = await listActiveUsersByRole(context, role);
+    return ok(actor.role === "sales_rep" ? users.filter((user) => user.id === actor.id) : users);
+  }
+
+  if (url.pathname === "/api/admin/users") {
+    return ok(
+      (await listAuthUsers(context)).map((user) => ({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        active: user.active,
+        authProvider: user.authProvider,
+        identityMapped: Boolean(user.authProvider && user.authSubject)
+      }))
+    );
   }
 
   if (url.pathname === "/api/settings") {
@@ -375,7 +476,10 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
     const businessRange = await getCurrentBusinessDay(context, now);
     const result = await listSalesTasks(context, {
       ...parsePagination(url),
-      assignedUserId: url.searchParams.get("assignedUserId") ?? undefined,
+      assignedUserId:
+        actor.role === "sales_rep"
+          ? actor.id
+          : (url.searchParams.get("assignedUserId") ?? undefined),
       status: url.searchParams.get("status") ?? undefined,
       priority: url.searchParams.get("priority") ?? undefined,
       due: parseSalesDueFilter(url.searchParams.get("due")),
@@ -390,6 +494,9 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
   if (salesTaskRoute) {
     const task = await getSalesTaskQueueItem(context, decodeURIComponent(salesTaskRoute[1]));
     if (!task) return notFound("Sales task not found.");
+    if (actor.role === "sales_rep" && task.assignedUser.id !== actor.id) {
+      return errorResponse(403, "FORBIDDEN", "You do not have access to this Sales task.");
+    }
     const [customer, visit] = await Promise.all([
       getCustomerOverview(context, task.customerId),
       getSalesVisitBySourceTaskId(context, task.id)
@@ -519,6 +626,12 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
   if (customerRoute) {
     const customerId = decodeURIComponent(customerRoute[1]);
     const childRoute = customerRoute[2];
+    try {
+      await requireCustomerScope(context, actor, customerId);
+    } catch (error) {
+      if (error instanceof AuthRequestError) return authErrorResponse(error);
+      throw error;
+    }
 
     if (!childRoute) {
       const overview = await getCustomerOverview(context, customerId);
@@ -555,7 +668,8 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
 async function handleCustomerAssistant(
   request: Request,
   env: Env,
-  context: ReturnType<typeof createDatabaseContext>
+  context: ReturnType<typeof createDatabaseContext>,
+  actor: AuthenticatedActor
 ): Promise<Response> {
   const body = await readJsonBody(request);
   if (body instanceof Response) return body;
@@ -577,6 +691,12 @@ async function handleCustomerAssistant(
     return validationError([{ field: "purpose", message: "Assistant purpose is invalid." }], 400);
   }
   const customerId = body.customerId.trim();
+  try {
+    await requireCustomerScope(context, actor, customerId);
+  } catch (error) {
+    if (error instanceof AuthRequestError) return authErrorResponse(error);
+    throw error;
+  }
   const purpose = purposeValue as AssistantPurpose;
   const now = new Date();
   const [overview, supplement, configRows, aiRows] = await Promise.all([
@@ -665,6 +785,7 @@ async function handleCustomerAssistant(
     const createdAt = new Date().toISOString();
     await safeRecordAssistantRun(context, {
       id: crypto.randomUUID(),
+      actorUserId: actor.id,
       customerId,
       purpose,
       provider: result.provider,
@@ -701,6 +822,7 @@ async function handleCustomerAssistant(
           : "AI_PROVIDER_ERROR";
     await safeRecordAssistantRun(context, {
       id: crypto.randomUUID(),
+      actorUserId: actor.id,
       customerId,
       purpose,
       provider: config.provider,

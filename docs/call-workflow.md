@@ -2,9 +2,9 @@
 
 ## Scope
 
-This workflow lets a Customer Service user log a structured call, create an optional follow-up task, and hand a visit request to a Sales Representative. It uses CRM data only. It does not connect to Money S4, OpenAI, telephony, email delivery, or an authentication provider.
+This workflow lets a Customer Service user log a structured call, create an optional follow-up task, and hand a visit request to a Sales Representative. It uses CRM data only. It does not connect to Money S4, OpenAI, telephony, or email delivery.
 
-Until authentication is implemented, the Worker attributes calls to `DEMO_CUSTOMER_SERVICE_USER_ID`. Local development defaults to the deterministic seed user `usr-cs-001`. The server validates that this user exists, is active, and has the `customer_service` role.
+The Worker attributes calls and created tasks to the centralized authenticated actor. Customer Service and administrator actors with `CUSTOMER_INTERACTIONS_WRITE` may use the workflow; arbitrary creator IDs are not accepted from the frontend.
 
 ## API Response Contract
 

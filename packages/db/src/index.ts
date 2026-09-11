@@ -31,5 +31,7 @@ export * from "./management/queries";
 export * from "./management/types";
 export * from "./assistant/queries";
 export * from "./assistant/types";
+export * from "./auth/queries";
+export * from "./auth/types";
 export * from "./settings/queries";
 export * from "./settings/types";

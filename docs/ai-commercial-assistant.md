@@ -6,7 +6,7 @@ The assistant follows one direction only:
 
 `normalized CRM data -> deterministic rules and metrics -> structured context -> AIProvider -> validated advisory output -> human decision`
 
-`packages/ai-assistant` owns the provider contract, context/output types, prompt version, JSON Schema, response validation, deterministic mock provider, and OpenAI provider. The Worker fetches bounded CRM facts, calculates priority before invoking AI, and persists only safe audit/cache metadata. React never calls an AI provider directly and never assembles authoritative context.
+`packages/ai-assistant` owns the provider contract, context/output types, prompt version, JSON Schema, response validation, deterministic mock provider, and OpenAI provider. The Worker fetches bounded CRM facts, calculates priority before invoking AI, and persists only safe audit/cache metadata linked to the authenticated CRM actor. React never calls an AI provider directly and never assembles authoritative context.
 
 ## Providers
 

@@ -8,7 +8,8 @@ INSERT OR IGNORE INTO users (id, external_id, name, email, role, active, created
   ('usr-cs-003', NULL, 'Eva Followup', 'eva.followup@example.test', 'customer_service', 1, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'),
   ('usr-sales-001', NULL, 'Peter Field', 'peter.field@example.test', 'sales_rep', 1, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'),
   ('usr-sales-002', NULL, 'Lucia Route', 'lucia.route@example.test', 'sales_rep', 1, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'),
-  ('usr-sales-003', NULL, 'Daniel Visit', 'daniel.visit@example.test', 'sales_rep', 1, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z');
+  ('usr-sales-003', NULL, 'Daniel Visit', 'daniel.visit@example.test', 'sales_rep', 1, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'),
+  ('usr-inactive-001', NULL, 'Inactive Operator', 'inactive.operator@example.test', 'customer_service', 0, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z');
 
 INSERT OR IGNORE INTO customers (
   id, external_id, company_name, company_registration_number, tax_id, vat_id, contact_name, email, phone, website, address, city, postal_code, country, assigned_sales_rep_id, b2b_status, active, source, metadata_json, created_at, updated_at
@@ -278,3 +279,8 @@ INSERT OR IGNORE INTO system_config (key, value, value_type, description, update
   ('ai.max_output_tokens', '700', 'number', 'Maximum provider output token budget.', '2026-09-11T00:00:00.000Z'),
   ('ai.timeout_ms', '15000', 'number', 'Provider request timeout in milliseconds.', '2026-09-11T00:00:00.000Z'),
   ('ai.cache_ttl_minutes', '15', 'number', 'Advisory response cache lifetime.', '2026-09-11T00:00:00.000Z');
+
+-- Authentication demo identities. Production identities are mapped explicitly after SSO setup.
+UPDATE users
+SET auth_provider = 'mock', auth_subject = id
+WHERE auth_provider IS NULL;

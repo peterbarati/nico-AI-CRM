@@ -67,10 +67,10 @@ export async function createCallWorkflow(
   if (!actor) {
     throw new CallWorkflowError("ACTOR_NOT_FOUND", "Configured Customer Service user not found.");
   }
-  if (actor.role !== "customer_service") {
+  if (actor.role !== "customer_service" && actor.role !== "admin") {
     throw new CallWorkflowError(
       "ACTOR_ROLE_INVALID",
-      "Configured interaction user must have the customer_service role."
+      "Interaction actor must have Customer Service or administrator access."
     );
   }
   if (command.request.salesRepUserId && selectedSalesRep?.role !== "sales_rep") {
@@ -253,7 +253,7 @@ function buildTaskInsert(
   return {
     assignedUserId: isSalesHandoff ? selectedSalesRepId! : command.actorUserId,
     description: [
-      `Requested by Customer Service user ${command.actorUserId}.`,
+      `Requested by CRM user ${command.actorUserId}.`,
       `Call reason: ${request.reason}.`,
       `Call result: ${request.result}.`,
       `Expected next action: ${request.nextAction}.`,

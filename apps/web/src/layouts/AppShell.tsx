@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { CurrentActor } from "../features/auth/types";
 
 export interface NavItem {
   label: string;
@@ -7,12 +8,21 @@ export interface NavItem {
 
 interface AppShellProps {
   activePath: string;
+  actor: CurrentActor;
   children: ReactNode;
   navItems: NavItem[];
   onNavigate: (path: string) => void;
+  onLogout: () => void;
 }
 
-export function AppShell({ activePath, children, navItems, onNavigate }: AppShellProps) {
+export function AppShell({
+  activePath,
+  actor,
+  children,
+  navItems,
+  onLogout,
+  onNavigate
+}: AppShellProps) {
   return (
     <div className="app-frame">
       <aside className="sidebar" aria-label="Primary navigation">
@@ -42,7 +52,15 @@ export function AppShell({ activePath, children, navItems, onNavigate }: AppShel
             <p className="eyebrow">NICO AI CRM</p>
             <h1>Customer operations</h1>
           </div>
-          <div className="environment-pill">Demo D1 data</div>
+          <div className="actor-menu">
+            <div>
+              <strong>{actor.name}</strong>
+              <span>{actor.role.replaceAll("_", " ")}</span>
+            </div>
+            <button onClick={onLogout} type="button">
+              Log out
+            </button>
+          </div>
         </header>
         <main className="content">{children}</main>
       </div>

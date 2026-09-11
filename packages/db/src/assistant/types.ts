@@ -16,6 +16,7 @@ export interface CachedAssistantRun {
 
 export interface RecordAssistantRunInput {
   id: string;
+  actorUserId: string;
   customerId: string;
   purpose: string;
   provider: string;

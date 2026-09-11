@@ -110,7 +110,7 @@ export async function scheduleSalesVisit(
         command.visitId,
         task.customerId,
         command.request.customerLocationId ?? task.customerLocationId,
-        command.actorUserId,
+        task.assignedUser.id,
         command.request.plannedAt,
         command.request.notes ?? null,
         command.createdAt,
@@ -387,13 +387,13 @@ function assertSalesActor(
   if (!actor) {
     throw new SalesWorkflowError("ACTOR_NOT_FOUND", "Configured Sales user not found.");
   }
-  if (actor.role !== "sales_rep") {
+  if (actor.role !== "sales_rep" && actor.role !== "admin") {
     throw new SalesWorkflowError(
       "ACTOR_ROLE_INVALID",
-      "Configured actor must have the sales_rep role."
+      "Visit actor must have Sales or administrator access."
     );
   }
-  if (actor.id !== assignedUserId) {
+  if (actor.role === "sales_rep" && actor.id !== assignedUserId) {
     throw new SalesWorkflowError(
       "ACTOR_NOT_ASSIGNED",
       "Sales task or visit is assigned to another user."
@@ -417,7 +417,7 @@ async function buildFollowUpTask(
     "B2B_REGISTRATION",
     "REORDER_FOLLOW_UP"
   ].includes(action);
-  let assignedUserId = command.actorUserId;
+  let assignedUserId = visit.salesRep.id;
   if (customerServiceAction) {
     const user = await getActiveUser(context, command.customerServiceUserId);
     if (user?.role !== "customer_service") {
@@ -446,7 +446,7 @@ async function buildFollowUpTask(
     assignedUserId,
     title: `${action.replaceAll("_", " ")} after Sales visit`,
     description: [
-      `Created by Sales Representative ${command.actorUserId}.`,
+      `Created by CRM user ${command.actorUserId}.`,
       `Visit result: ${command.request.result}.`,
       `Expected next action: ${action}.`,
       command.request.notes ? `Context: ${command.request.notes}` : null,

@@ -388,4 +388,4 @@ The current bootstrap is aligned with Phase 1:
 - `MockERPProvider` is the only functional Phase 1 provider.
 - `MoneyS4Provider` is a Phase 2 placeholder with no connection logic, URLs, SQL, credentials, or assumed Money S4 schema.
 
-No Money S4 integration, OpenAI integration, authentication, CRM tables, or deployment should be added until explicitly requested.
+Money S4 integration and production deployment remain deferred. OpenAI and authentication are isolated behind provider boundaries and must not leak vendor-specific logic into CRM domains.

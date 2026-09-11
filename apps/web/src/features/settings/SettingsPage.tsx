@@ -3,7 +3,7 @@ import { formatLabel } from "../customers/formatting";
 import { fetchSettings, saveSettings } from "./api";
 import type { ConfigSetting, SettingsData } from "./types";
 
-export function SettingsPage() {
+export function SettingsPage({ canWrite = true }: { canWrite?: boolean }) {
   const [data, setData] = useState<SettingsData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -24,6 +24,7 @@ export function SettingsPage() {
     );
   if (!data) return <div className="loading-state">Loading business settings...</div>;
   const updateSetting = (section: keyof SettingsData["sections"], key: string, value: string) =>
+    canWrite &&
     setData((current) =>
       current
         ? {
@@ -68,6 +69,7 @@ export function SettingsPage() {
       <SettingsSection
         title="Customer Service"
         settings={data.sections.customerService}
+        disabled={!canWrite}
         onChange={(key, value) => updateSetting("customerService", key, value)}
       />
       <section className="settings-section">
@@ -80,11 +82,13 @@ export function SettingsPage() {
       <SettingsSection
         title="Business"
         settings={data.sections.business}
+        disabled={!canWrite}
         onChange={(key, value) => updateSetting("business", key, value)}
       />
       <SettingsSection
         title="AI"
         settings={data.sections.ai}
+        disabled={!canWrite}
         onChange={(key, value) => updateSetting("ai", key, value)}
       >
         <p className="settings-availability">
@@ -97,6 +101,7 @@ export function SettingsPage() {
         <h3>KPI</h3>
         <SettingsFields
           settings={data.sections.kpi}
+          disabled={!canWrite}
           onChange={(key, value) => updateSetting("kpi", key, value)}
         />
         <div className="table-wrap table-wrap--compact">
@@ -121,6 +126,7 @@ export function SettingsPage() {
                   <td>
                     <input
                       type="number"
+                      disabled={!canWrite}
                       min="0"
                       value={target.targetValue}
                       onChange={(event) =>
@@ -141,6 +147,7 @@ export function SettingsPage() {
                   <td>
                     <input
                       type="number"
+                      disabled={!canWrite}
                       min="0"
                       max="1"
                       step="0.05"
@@ -173,6 +180,7 @@ export function SettingsPage() {
             Company {target.name} target
             <input
               type="number"
+              disabled={!canWrite}
               min="0"
               value={target.targetValue}
               onChange={(event) =>
@@ -193,9 +201,13 @@ export function SettingsPage() {
         ))}
       </section>
       <div className="settings-actions">
-        <button disabled={saving} onClick={() => void save()} type="button">
-          {saving ? "Saving..." : "Save settings"}
-        </button>
+        {canWrite ? (
+          <button disabled={saving} onClick={() => void save()} type="button">
+            {saving ? "Saving..." : "Save settings"}
+          </button>
+        ) : (
+          <p className="muted">Read-only access</p>
+        )}
       </div>
     </section>
   );
@@ -204,11 +216,13 @@ export function SettingsPage() {
 function SettingsSection({
   title,
   settings,
+  disabled,
   onChange,
   children
 }: {
   title: string;
   settings: ConfigSetting[];
+  disabled: boolean;
   onChange: (key: string, value: string) => void;
   children?: React.ReactNode;
 }) {
@@ -216,15 +230,17 @@ function SettingsSection({
     <section className="settings-section">
       <h3>{title}</h3>
       {children}
-      <SettingsFields settings={settings} onChange={onChange} />
+      <SettingsFields disabled={disabled} settings={settings} onChange={onChange} />
     </section>
   );
 }
 function SettingsFields({
   settings,
+  disabled,
   onChange
 }: {
   settings: ConfigSetting[];
+  disabled: boolean;
   onChange: (key: string, value: string) => void;
 }) {
   return (
@@ -234,6 +250,7 @@ function SettingsFields({
           {formatLabel(setting.key.split(".").at(-1) ?? setting.key)}
           {setting.valueType === "boolean" ? (
             <select
+              disabled={disabled}
               value={setting.value}
               onChange={(event) => onChange(setting.key, event.target.value)}
             >
@@ -242,6 +259,7 @@ function SettingsFields({
             </select>
           ) : setting.key === "ai.provider" ? (
             <select
+              disabled={disabled}
               value={setting.value}
               onChange={(event) => onChange(setting.key, event.target.value)}
             >
@@ -250,6 +268,7 @@ function SettingsFields({
             </select>
           ) : (
             <input
+              disabled={disabled}
               type={setting.valueType === "number" ? "number" : "text"}
               value={setting.value}
               onChange={(event) => onChange(setting.key, event.target.value)}

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import worker, { createHealthResponse, type Env } from "./index";
+import application, { createHealthResponse, type Env } from "./index";
 
 interface SqliteStatement {
   all(...params: unknown[]): unknown[];
@@ -72,6 +72,9 @@ class TestD1Database {
       this.database.exec(
         readFileSync(join(process.cwd(), "migrations/0005_ai_assistant_foundation.sql"), "utf8")
       );
+      this.database.exec(
+        readFileSync(join(process.cwd(), "migrations/0006_auth_foundation.sql"), "utf8")
+      );
     }
     const seed = readFileSync(join(process.cwd(), "packages/db/seeds/demo.sql"), "utf8");
     this.database.exec(
@@ -108,9 +111,33 @@ function createTestEnv(applySalesWorkflowMigration = true): Env {
     ASSETS: {
       fetch: () => Promise.resolve(new Response("asset", { status: 200 }))
     },
+    AUTH_MODE: "mock",
     DB: new TestD1Database(applySalesWorkflowMigration) as unknown as D1Database
   };
 }
+
+const worker = {
+  fetch(request: Request, env: Env) {
+    const url = new URL(request.url);
+    if (
+      url.pathname === "/api/health" ||
+      url.pathname.startsWith("/api/auth/") ||
+      request.headers.has("x-mock-user-id") ||
+      request.headers.has("cookie")
+    ) {
+      return application.fetch(request, env);
+    }
+    const actorId =
+      request.method === "POST" && /^\/api\/customers\/[^/]+\/interactions$/.test(url.pathname)
+        ? "usr-cs-001"
+        : request.method === "POST" && url.pathname.startsWith("/api/sales/")
+          ? "usr-sales-002"
+          : "usr-admin-001";
+    const headers = new Headers(request.headers);
+    headers.set("x-mock-user-id", actorId);
+    return application.fetch(new Request(request, { headers }), env);
+  }
+};
 
 afterEach(() => {
   vi.useRealTimers();
@@ -370,10 +397,14 @@ describe("Sales visit workflow API", () => {
     };
     const scheduled = await postJson(env, "/api/sales/tasks/tsk-007/visits", scheduleBody);
     const scheduledBody = (await scheduled.json()) as {
-      data: { duplicate: boolean; visit: { id: string; status: string } };
+      data: {
+        duplicate: boolean;
+        visit: { id: string; status: string; salesRep: { id: string } };
+      };
     };
     expect(scheduled.status).toBe(201);
     expect(scheduledBody.data.visit.status).toBe("planned");
+    expect(scheduledBody.data.visit.salesRep.id).toBe("usr-sales-002");
 
     const duplicate = await postJson(env, "/api/sales/tasks/tsk-007/visits", scheduleBody);
     expect(duplicate.status).toBe(200);
@@ -620,6 +651,141 @@ describe("AI assistant and settings API", () => {
   });
 });
 
+describe("authentication and authorization", () => {
+  it("returns 401 without an identity and fails closed when OIDC is incomplete", async () => {
+    const env = createTestEnv();
+    const unauthenticated = await application.fetch(
+      new Request("http://localhost/api/customers"),
+      env
+    );
+    const misconfigured = await application.fetch(
+      new Request("http://localhost/api/customers", {
+        headers: { authorization: "Bearer malformed" }
+      }),
+      { ...env, AUTH_MODE: "oidc" }
+    );
+    expect(unauthenticated.status).toBe(401);
+    expect(await unauthenticated.json()).toMatchObject({
+      error: { code: "UNAUTHENTICATED" }
+    });
+    expect(misconfigured.status).toBe(503);
+    expect(await misconfigured.json()).toMatchObject({
+      error: { code: "AUTH_CONFIGURATION_ERROR" }
+    });
+  });
+
+  it("returns the safe current actor and rejects inactive users", async () => {
+    const env = createTestEnv();
+    const admin = await application.fetch(actorRequest("/api/auth/me", "usr-admin-001"), env);
+    const inactive = await application.fetch(actorRequest("/api/auth/me", "usr-inactive-001"), env);
+    expect(await admin.json()).toMatchObject({
+      data: {
+        id: "usr-admin-001",
+        role: "admin",
+        permissions: expect.arrayContaining(["SETTINGS_WRITE", "USER_ADMIN"])
+      }
+    });
+    expect(inactive.status).toBe(403);
+    expect(await inactive.json()).toMatchObject({ error: { code: "INACTIVE_USER" } });
+  });
+
+  it("enforces role permissions for settings, AI, and operational routes", async () => {
+    const env = createTestEnv();
+    const managerWrite = await application.fetch(
+      actorRequest("/api/settings", "usr-manager-001", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ values: { "customer_service.daily_call_target": 99 } })
+      }),
+      env
+    );
+    const salesSettings = await application.fetch(
+      actorRequest("/api/settings", "usr-sales-001"),
+      env
+    );
+    const customerServiceAi = await application.fetch(
+      actorRequest("/api/ai/customer-assistant", "usr-cs-001", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ customerId: "cus-006" })
+      }),
+      env
+    );
+    const customerServiceSalesQueue = await application.fetch(
+      actorRequest("/api/sales/tasks", "usr-cs-001"),
+      env
+    );
+    expect(managerWrite.status).toBe(403);
+    expect(salesSettings.status).toBe(403);
+    expect(customerServiceAi.status).toBe(200);
+    expect(customerServiceSalesQueue.status).toBe(403);
+  });
+
+  it("uses authenticated actors for writes and scopes Sales data", async () => {
+    vi.setSystemTime(new Date("2026-09-11T12:00:00.000Z"));
+    const env = createTestEnv();
+    const call = await application.fetch(
+      actorRequest("/api/customers/cus-006/interactions", "usr-cs-002", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          idempotencyKey: "auth-call-001",
+          reason: "REACTIVATION",
+          result: "RESOLVED",
+          nextAction: "NONE"
+        })
+      }),
+      env
+    );
+    const callBody = (await call.json()) as { data: { interaction: { user: { id: string } } } };
+    expect(callBody.data.interaction.user.id).toBe("usr-cs-002");
+
+    const scopedList = await application.fetch(
+      actorRequest("/api/customers?pageSize=100", "usr-sales-001"),
+      env
+    );
+    const listBody = (await scopedList.json()) as {
+      data: Array<{ assignedSalesRep: { id: string } | null }>;
+    };
+    expect(listBody.data.length).toBeGreaterThan(0);
+    expect(listBody.data.every((item) => item.assignedSalesRep?.id === "usr-sales-001")).toBe(true);
+    const forbiddenCustomer = await application.fetch(
+      actorRequest("/api/customers/cus-004", "usr-sales-001"),
+      env
+    );
+    expect(forbiddenCustomer.status).toBe(403);
+  });
+
+  it("supports an explicit mock login cookie and protects user administration", async () => {
+    const env = createTestEnv();
+    const login = await application.fetch(
+      new Request("http://localhost/api/auth/mock-login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ userId: "usr-manager-001" })
+      }),
+      env
+    );
+    const cookie = login.headers.get("set-cookie")?.split(";")[0] ?? "";
+    const me = await application.fetch(
+      new Request("http://localhost/api/auth/me", { headers: { cookie } }),
+      env
+    );
+    const managerUsers = await application.fetch(
+      actorRequest("/api/admin/users", "usr-manager-001"),
+      env
+    );
+    const adminUsers = await application.fetch(
+      actorRequest("/api/admin/users", "usr-admin-001"),
+      env
+    );
+    expect(login.status).toBe(200);
+    expect(await me.json()).toMatchObject({ data: { id: "usr-manager-001" } });
+    expect(managerUsers.status).toBe(403);
+    expect(adminUsers.status).toBe(200);
+  });
+});
+
 function postCall(env: Env, customerId: string, body: unknown): Promise<Response> {
   return worker.fetch(
     new Request(`http://localhost/api/customers/${customerId}/interactions`, {
@@ -629,6 +795,12 @@ function postCall(env: Env, customerId: string, body: unknown): Promise<Response
     }),
     env
   );
+}
+
+function actorRequest(path: string, userId: string, init?: RequestInit): Request {
+  const headers = new Headers(init?.headers);
+  headers.set("x-mock-user-id", userId);
+  return new Request(`http://localhost${path}`, { ...init, headers });
 }
 
 function postJson(env: Env, path: string, body: unknown): Promise<Response> {

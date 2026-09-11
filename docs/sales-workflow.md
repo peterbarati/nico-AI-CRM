@@ -12,4 +12,4 @@ The Sales queue contains all actionable tasks assigned to active Sales Represent
 
 Create and completion requests carry idempotency keys. Repeating the same request returns the existing workflow result. State transitions and actor assignment are validated in the Worker/database boundary.
 
-Phase 1 actor IDs come from `DEMO_SALES_USER_ID` and `DEMO_CUSTOMER_SERVICE_USER_ID`. This is deliberately isolated so future authentication can replace actor resolution without changing workflow persistence.
+Sales mutations use the centralized authenticated actor. Sales Representatives may operate only on assigned tasks and visits; administrators retain operational access. Customer Service follow-up handoffs resolve an active CRM Customer Service user server-side.

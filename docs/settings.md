@@ -24,4 +24,4 @@ Updates write existing allowlisted rows only. They do not create arbitrary `syst
 
 ## Production boundary
 
-Settings writes are intentionally unauthenticated only because production authentication is a stated non-goal. The PATCH endpoint must be protected by manager/admin authorization before any production deployment. Deployment hardening must also configure Worker secrets and environment-specific settings.
+`GET /api/settings` requires `SETTINGS_READ`; Managers and Administrators receive it. `PATCH /api/settings` requires `SETTINGS_WRITE`, which is initially limited to Administrators. Frontend controls are read-only for Managers, but the Worker remains the authoritative enforcement point. Deployment hardening must also configure Worker secrets and environment-specific settings.
