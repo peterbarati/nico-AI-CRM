@@ -74,16 +74,25 @@ export function CustomerDetailSections({
       </DataPanel>
       <DataPanel title="Interactions">
         <CompactTable
-          columns={["Date", "User", "Type", "Reason", "Result", "Follow-up"]}
+          columns={[
+            "Date",
+            "User",
+            "Type",
+            "Reason",
+            "Result",
+            "Notes",
+            "Next action",
+            "Follow-up"
+          ]}
           rows={interactions.map((interaction) => [
             formatDate(interaction.createdAt),
             interaction.user.name,
             interaction.interactionType,
             interaction.reason ?? "No reason",
-            interaction.result ?? interaction.notes ?? "No result",
-            interaction.followUpAt
-              ? formatDate(interaction.followUpAt)
-              : (interaction.nextAction ?? "None")
+            interaction.result ?? "No result",
+            interaction.notes ?? "No notes",
+            interaction.nextAction ? formatLabel(interaction.nextAction) : "None",
+            formatDate(interaction.followUpAt)
           ])}
         />
       </DataPanel>

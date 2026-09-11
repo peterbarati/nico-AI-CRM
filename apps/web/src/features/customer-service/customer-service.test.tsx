@@ -79,7 +79,11 @@ describe("customer service frontend rendering", () => {
   it("renders daily target and queue priority information", () => {
     const summaryMarkup = renderToStaticMarkup(<CustomerServiceSummaryCards summary={summary} />);
     const tableMarkup = renderToStaticMarkup(
-      <CustomerServiceQueueTable items={[queueItem]} onOpenCustomer={() => undefined} />
+      <CustomerServiceQueueTable
+        items={[queueItem]}
+        onLogCall={() => undefined}
+        onOpenCustomer={() => undefined}
+      />
     );
 
     expect(summaryMarkup).toContain("Today&#x27;s call target");
@@ -92,7 +96,11 @@ describe("customer service frontend rendering", () => {
 
   it("renders the empty queue state", () => {
     const markup = renderToStaticMarkup(
-      <CustomerServiceQueueTable items={[]} onOpenCustomer={() => undefined} />
+      <CustomerServiceQueueTable
+        items={[]}
+        onLogCall={() => undefined}
+        onOpenCustomer={() => undefined}
+      />
     );
 
     expect(markup).toContain("No calls queued");

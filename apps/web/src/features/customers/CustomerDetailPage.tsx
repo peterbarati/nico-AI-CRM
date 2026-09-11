@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { LogCallForm } from "../interactions/LogCallForm";
 import {
   fetchCustomerInteractions,
   fetchCustomerOrders,
@@ -34,46 +35,38 @@ export function CustomerDetailPage({ customerId, onBack }: CustomerDetailPagePro
   const [state, setState] = useState<CustomerDetailState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showLogCall, setShowLogCall] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
-  useEffect(() => {
-    let mounted = true;
+  const loadCustomer = useCallback(async () => {
     setLoading(true);
     setError(null);
-
-    Promise.all([
-      fetchCustomerOverview(customerId),
-      fetchCustomerOrders(customerId),
-      fetchCustomerInteractions(customerId),
-      fetchCustomerTasks(customerId),
-      fetchCustomerVisits(customerId)
-    ])
-      .then(([overview, orders, interactions, tasks, visits]) => {
-        if (mounted) {
-          setState({
-            interactions: interactions.data,
-            orders: orders.data,
-            overview,
-            tasks: tasks.data,
-            visits: visits.data
-          });
-        }
-      })
-      .catch((unknownError: unknown) => {
-        if (mounted) {
-          setError(unknownError instanceof Error ? unknownError.message : "Customer unavailable");
-          setState(null);
-        }
-      })
-      .finally(() => {
-        if (mounted) {
-          setLoading(false);
-        }
+    try {
+      const [overview, orders, interactions, tasks, visits] = await Promise.all([
+        fetchCustomerOverview(customerId),
+        fetchCustomerOrders(customerId),
+        fetchCustomerInteractions(customerId),
+        fetchCustomerTasks(customerId),
+        fetchCustomerVisits(customerId)
+      ]);
+      setState({
+        interactions: interactions.data,
+        orders: orders.data,
+        overview,
+        tasks: tasks.data,
+        visits: visits.data
       });
-
-    return () => {
-      mounted = false;
-    };
+    } catch (unknownError) {
+      setError(unknownError instanceof Error ? unknownError.message : "Customer unavailable");
+      setState(null);
+    } finally {
+      setLoading(false);
+    }
   }, [customerId]);
+
+  useEffect(() => {
+    void loadCustomer();
+  }, [loadCustomer]);
 
   if (loading) {
     return <div className="loading-state">Loading customer detail...</div>;
@@ -104,7 +97,12 @@ export function CustomerDetailPage({ customerId, onBack }: CustomerDetailPagePro
 
   return (
     <section className="page-stack">
-      <CustomerDetailHeader onBack={onBack} overview={state.overview} />
+      {notice ? <p className="success-notice">{notice}</p> : null}
+      <CustomerDetailHeader
+        onBack={onBack}
+        onLogCall={() => setShowLogCall(true)}
+        overview={state.overview}
+      />
       <CustomerMetricsCards
         metrics={state.overview.metrics}
         salesTrend={state.overview.customer.salesTrend}
@@ -117,6 +115,19 @@ export function CustomerDetailPage({ customerId, onBack }: CustomerDetailPagePro
         tasks={state.tasks}
         visits={state.visits}
       />
+      {showLogCall ? (
+        <LogCallForm
+          customerId={state.overview.customer.id}
+          customerName={state.overview.customer.companyName}
+          defaultSalesRepId={state.overview.customer.assignedSalesRep?.id}
+          onCancel={() => setShowLogCall(false)}
+          onSuccess={(result) => {
+            setShowLogCall(false);
+            setNotice(result.task ? "Call and follow-up task saved." : "Call saved.");
+            void loadCustomer();
+          }}
+        />
+      ) : null}
     </section>
   );
 }

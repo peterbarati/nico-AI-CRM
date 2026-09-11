@@ -3,6 +3,7 @@ import { AppShell, type NavItem } from "./layouts/AppShell";
 import { CustomersPage } from "./features/customers/CustomersPage";
 import { CustomerServicePage } from "./features/customer-service/CustomerServicePage";
 import { ComingSoonPage } from "./pages/ComingSoonPage";
+import { SalesPage } from "./features/sales/SalesPage";
 
 const navItems: NavItem[] = [
   { label: "Dashboard", path: "/" },
@@ -46,6 +47,8 @@ export function App() {
       <CustomersPage customerId={customerDetailMatch?.[1]} onNavigate={navigate} />
     ) : path === "/customer-service" ? (
       <CustomerServicePage onNavigate={navigate} />
+    ) : path === "/sales" ? (
+      <SalesPage onNavigate={navigate} />
     ) : (
       <ComingSoonPage title={activeItem.label} />
     );

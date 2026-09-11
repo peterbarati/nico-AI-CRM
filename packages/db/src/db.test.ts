@@ -17,6 +17,7 @@ import {
 interface SqliteStatement {
   all(...params: unknown[]): unknown[];
   get(...params: unknown[]): unknown | undefined;
+  run(...params: unknown[]): unknown;
 }
 
 interface SqliteDatabase {
@@ -50,6 +51,10 @@ class TestD1Statement {
   async first<T>(): Promise<T | null> {
     return (this.database.prepare(this.sql).get(...this.params) as T | undefined) ?? null;
   }
+
+  async run(): Promise<unknown> {
+    return this.database.prepare(this.sql).run(...this.params);
+  }
 }
 
 class TestD1Database {
@@ -61,6 +66,9 @@ class TestD1Database {
     this.database = new DatabaseSync(":memory:");
     this.database.exec("PRAGMA foreign_keys = ON;");
     this.database.exec(readFileSync(join(process.cwd(), "migrations/0001_initial.sql"), "utf8"));
+    this.database.exec(
+      readFileSync(join(process.cwd(), "migrations/0002_interaction_idempotency.sql"), "utf8")
+    );
   }
 
   exec(sql: string): void {
@@ -69,6 +77,21 @@ class TestD1Database {
 
   prepare(sql: string): TestD1Statement {
     return new TestD1Statement(this.database, sql);
+  }
+
+  async batch(statements: TestD1Statement[]): Promise<unknown[]> {
+    this.database.exec("BEGIN");
+    try {
+      const results = [];
+      for (const statement of statements) {
+        results.push(await statement.run());
+      }
+      this.database.exec("COMMIT");
+      return results;
+    } catch (error) {
+      this.database.exec("ROLLBACK");
+      throw error;
+    }
   }
 }
 

@@ -4,6 +4,7 @@ import type { CustomerServiceQueueItem } from "./types";
 
 interface CustomerServiceQueueTableProps {
   items: CustomerServiceQueueItem[];
+  onLogCall: (item: CustomerServiceQueueItem) => void;
   onOpenCustomer: (customerId: string) => void;
 }
 
@@ -16,6 +17,7 @@ const priorityLabels: Record<string, string> = {
 
 export function CustomerServiceQueueTable({
   items,
+  onLogCall,
   onOpenCustomer
 }: CustomerServiceQueueTableProps) {
   if (items.length === 0) {
@@ -91,6 +93,9 @@ export function CustomerServiceQueueTable({
               </td>
               <td>
                 <strong>{item.priority.primaryRecommendedAction ?? "REVIEW"}</strong>
+                <button onClick={() => onLogCall(item)} type="button">
+                  Log call
+                </button>
                 <button onClick={() => onOpenCustomer(item.customerId)} type="button">
                   Open profile
                 </button>

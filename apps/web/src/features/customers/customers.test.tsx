@@ -130,7 +130,11 @@ describe("customer frontend rendering", () => {
 
   it("renders customer detail header and commercial metrics", () => {
     const header = renderToStaticMarkup(
-      <CustomerDetailHeader onBack={() => undefined} overview={overview} />
+      <CustomerDetailHeader
+        onBack={() => undefined}
+        onLogCall={() => undefined}
+        overview={overview}
+      />
     );
     const metrics = renderToStaticMarkup(
       <CustomerMetricsCards metrics={overview.metrics} salesTrend={overview.customer.salesTrend} />

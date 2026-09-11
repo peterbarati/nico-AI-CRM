@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import type { CallReasonCode } from "@nico-ai-crm/shared";
+import { LogCallForm } from "../interactions/LogCallForm";
 import { fetchCustomerServiceQueue } from "./api";
 import { CustomerServiceErrorState } from "./CustomerServiceErrorState";
 import { CustomerServiceQueueTable } from "./CustomerServiceQueueTable";
@@ -19,39 +21,42 @@ export function CustomerServicePage({ onNavigate }: CustomerServicePageProps) {
   const [meta, setMeta] = useState<CustomerServiceQueueResponse["data"]["meta"] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerServiceQueueItem | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
-  useEffect(() => {
-    let mounted = true;
+  const loadQueue = useCallback(async () => {
     setLoading(true);
     setError(null);
-
-    fetchCustomerServiceQueue()
-      .then((data) => {
-        if (mounted) {
-          setItems(data.items);
-          setSummary(data.summary);
-          setMeta(data.meta);
-        }
-      })
-      .catch((unknownError: unknown) => {
-        if (mounted) {
-          setError(
-            unknownError instanceof Error
-              ? unknownError.message
-              : "Customer Service queue unavailable"
-          );
-        }
-      })
-      .finally(() => {
-        if (mounted) {
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      mounted = false;
-    };
+    try {
+      const data = await fetchCustomerServiceQueue();
+      setItems(data.items);
+      setSummary(data.summary);
+      setMeta(data.meta);
+    } catch (unknownError) {
+      setError(
+        unknownError instanceof Error ? unknownError.message : "Customer Service queue unavailable"
+      );
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadQueue();
+  }, [loadQueue]);
+
+  function toCallReason(item: CustomerServiceQueueItem): CallReasonCode {
+    const action = item.priority.primaryRecommendedAction;
+    return action === "REORDER" ||
+      action === "RETENTION" ||
+      action === "REACTIVATION" ||
+      action === "B2B_REGISTRATION" ||
+      action === "CROSS_SELL" ||
+      action === "CAMPAIGN_FOLLOW_UP" ||
+      action === "TASK_FOLLOW_UP"
+      ? action
+      : "GENERAL";
+  }
 
   return (
     <section className="page-stack">
@@ -65,6 +70,7 @@ export function CustomerServicePage({ onNavigate }: CustomerServicePageProps) {
           recent interaction history.
         </p>
       </div>
+      {notice ? <p className="success-notice">{notice}</p> : null}
       {loading ? <div className="loading-state">Loading Customer Service queue...</div> : null}
       {error ? <CustomerServiceErrorState message={error} /> : null}
       {!loading && !error && summary ? (
@@ -78,9 +84,24 @@ export function CustomerServicePage({ onNavigate }: CustomerServicePageProps) {
           ) : null}
           <CustomerServiceQueueTable
             items={items}
+            onLogCall={setSelectedCustomer}
             onOpenCustomer={(customerId) => onNavigate(`/customers/${customerId}`)}
           />
         </>
+      ) : null}
+      {selectedCustomer ? (
+        <LogCallForm
+          customerId={selectedCustomer.customerId}
+          customerName={selectedCustomer.companyName}
+          defaultSalesRepId={selectedCustomer.assignedSalesRep?.id}
+          onCancel={() => setSelectedCustomer(null)}
+          onSuccess={(result) => {
+            setSelectedCustomer(null);
+            setNotice(result.task ? "Call and follow-up task saved." : "Call saved.");
+            void loadQueue();
+          }}
+          suggestedReason={toCallReason(selectedCustomer)}
+        />
       ) : null}
     </section>
   );

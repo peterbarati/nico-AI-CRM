@@ -6,6 +6,7 @@ import {
 } from "@nico-ai-crm/crm-rules";
 import {
   countCompletedCustomerServiceCallsToday,
+  createCallWorkflow,
   createDatabaseContext,
   getCustomerFilterOptions,
   getCustomerOverview,
@@ -17,18 +18,26 @@ import {
   listCustomerTasks,
   listCustomerVisits,
   listSegments,
+  listActiveUsersByRole,
+  listSalesHandoffTasks,
   listTasks,
+  CallWorkflowError,
   type CustomerListQuery,
   type CustomerSortField,
   type PaginationInput,
   type SortDirection
 } from "@nico-ai-crm/db";
-import type { HealthResponse } from "@nico-ai-crm/shared";
+import {
+  validateCreateCallRequest,
+  type HealthResponse,
+  type ValidationIssue
+} from "@nico-ai-crm/shared";
 
 export interface Env {
   DB: D1Database;
   ASSETS: Fetcher;
   APP_ENV?: string;
+  DEMO_CUSTOMER_SERVICE_USER_ID?: string;
 }
 
 const jsonHeaders = {
@@ -55,6 +64,27 @@ function notFound(message = "Not found"): Response {
 
 function badRequest(message: string): Response {
   return jsonResponse({ ok: false, error: { code: "BAD_REQUEST", message } }, { status: 400 });
+}
+
+function validationError(issues: ValidationIssue[]): Response {
+  return jsonResponse(
+    {
+      ok: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Request validation failed.",
+        details: issues
+      }
+    },
+    { status: 422 }
+  );
+}
+
+function methodNotAllowed(): Response {
+  return jsonResponse(
+    { ok: false, error: { code: "METHOD_NOT_ALLOWED", message: "Method not allowed." } },
+    { status: 405 }
+  );
 }
 
 function internalError(): Response {
@@ -152,8 +182,50 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
     return jsonResponse(createHealthResponse());
   }
 
+  const interactionWriteRoute = url.pathname.match(/^\/api\/customers\/([^/]+)\/interactions$/);
+  if (interactionWriteRoute && request.method === "POST") {
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return badRequest("Request body must be valid JSON.");
+    }
+
+    const now = new Date();
+    const validation = validateCreateCallRequest(body, now);
+    if (!validation.success) {
+      return validationError(validation.issues);
+    }
+
+    try {
+      const result = await createCallWorkflow(context, {
+        actorUserId: env.DEMO_CUSTOMER_SERVICE_USER_ID ?? "usr-cs-001",
+        createdAt: now.toISOString(),
+        customerId: decodeURIComponent(interactionWriteRoute[1]),
+        interactionId: crypto.randomUUID(),
+        request: validation.data,
+        taskId: crypto.randomUUID()
+      });
+      return ok(result, { status: result.duplicate ? 200 : 201 });
+    } catch (error) {
+      if (error instanceof CallWorkflowError) {
+        const status =
+          error.code === "CUSTOMER_NOT_FOUND"
+            ? 404
+            : error.code === "IDEMPOTENCY_CONFLICT"
+              ? 409
+              : 422;
+        return jsonResponse(
+          { ok: false, error: { code: error.code, message: error.message } },
+          { status }
+        );
+      }
+      throw error;
+    }
+  }
+
   if (request.method !== "GET") {
-    return badRequest("Only read-only GET API endpoints are available in this phase.");
+    return methodNotAllowed();
   }
 
   if (url.pathname === "/api/customers") {
@@ -175,6 +247,20 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
       status: url.searchParams.get("status") ?? undefined
     });
     return jsonResponse({ ok: true, data: result.items, pagination: result.pagination });
+  }
+
+  if (url.pathname === "/api/users") {
+    const role = url.searchParams.get("role");
+    if (role !== "sales_rep") {
+      return badRequest("Only role=sales_rep is supported by this endpoint.");
+    }
+    return ok(await listActiveUsersByRole(context, role));
+  }
+
+  if (url.pathname === "/api/sales/tasks") {
+    return ok(
+      await listSalesHandoffTasks(context, url.searchParams.get("assignedUserId") ?? undefined)
+    );
   }
 
   if (url.pathname === "/api/customer-service/queue") {

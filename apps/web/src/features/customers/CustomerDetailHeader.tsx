@@ -4,9 +4,10 @@ import type { CustomerOverview } from "./types";
 interface CustomerDetailHeaderProps {
   overview: CustomerOverview;
   onBack: () => void;
+  onLogCall: () => void;
 }
 
-export function CustomerDetailHeader({ overview, onBack }: CustomerDetailHeaderProps) {
+export function CustomerDetailHeader({ overview, onBack, onLogCall }: CustomerDetailHeaderProps) {
   const { customer } = overview;
 
   return (
@@ -28,8 +29,8 @@ export function CustomerDetailHeader({ overview, onBack }: CustomerDetailHeaderP
             <span>{customer.email ?? "No email"}</span>
           </div>
         </div>
-        <div className="action-group" aria-label="Read-only future actions">
-          <button disabled type="button">
+        <div className="action-group" aria-label="Customer actions">
+          <button onClick={onLogCall} type="button">
             Log call
           </button>
           <button disabled type="button">

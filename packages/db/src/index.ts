@@ -21,3 +21,7 @@ export * from "./config/queries";
 export * from "./config/types";
 export * from "./customer-service/queries";
 export * from "./customer-service/types";
+export * from "./users/queries";
+export * from "./users/types";
+export * from "./sales/queries";
+export * from "./sales/types";

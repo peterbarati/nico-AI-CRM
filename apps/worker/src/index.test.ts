@@ -7,6 +7,7 @@ import worker, { createHealthResponse, type Env } from "./index";
 interface SqliteStatement {
   all(...params: unknown[]): unknown[];
   get(...params: unknown[]): unknown | undefined;
+  run(...params: unknown[]): unknown;
 }
 
 interface SqliteDatabase {
@@ -40,6 +41,10 @@ class TestD1Statement {
   async first<T>(): Promise<T | null> {
     return (this.database.prepare(this.sql).get(...this.params) as T | undefined) ?? null;
   }
+
+  async run(): Promise<unknown> {
+    return this.database.prepare(this.sql).run(...this.params);
+  }
 }
 
 class TestD1Database {
@@ -51,11 +56,29 @@ class TestD1Database {
     this.database = new DatabaseSync(":memory:");
     this.database.exec("PRAGMA foreign_keys = ON;");
     this.database.exec(readFileSync(join(process.cwd(), "migrations/0001_initial.sql"), "utf8"));
+    this.database.exec(
+      readFileSync(join(process.cwd(), "migrations/0002_interaction_idempotency.sql"), "utf8")
+    );
     this.database.exec(readFileSync(join(process.cwd(), "packages/db/seeds/demo.sql"), "utf8"));
   }
 
   prepare(sql: string): TestD1Statement {
     return new TestD1Statement(this.database, sql);
+  }
+
+  async batch(statements: TestD1Statement[]): Promise<unknown[]> {
+    this.database.exec("BEGIN");
+    try {
+      const results = [];
+      for (const statement of statements) {
+        results.push(await statement.run());
+      }
+      this.database.exec("COMMIT");
+      return results;
+    } catch (error) {
+      this.database.exec("ROLLBACK");
+      throw error;
+    }
   }
 }
 
@@ -111,4 +134,171 @@ describe("customer service API", () => {
     expect(body.data.items[0]?.customerId).toBe("cus-006");
     expect(body.data.items[0]?.priority.reasons.length).toBeGreaterThan(0);
   });
+
+  it("creates a call, linked follow-up task, and refreshed customer history", async () => {
+    vi.setSystemTime(new Date("2026-09-11T12:00:00.000Z"));
+    const env = createTestEnv();
+    const response = await postCall(env, "cus-007", {
+      followUpAt: "2026-09-14T09:00:00.000Z",
+      idempotencyKey: "test-follow-up-001",
+      nextAction: "FOLLOW_UP_CALL",
+      notes: "Customer asked for a callback after reviewing stock.",
+      priority: "HIGH",
+      reason: "B2B_REGISTRATION",
+      result: "CALLBACK_REQUESTED"
+    });
+    const body = (await response.json()) as {
+      ok: true;
+      data: {
+        interaction: { id: string; reason: string; result: string };
+        task: { sourceInteractionId: string; assignedUser: { id: string } };
+      };
+    };
+
+    expect(response.status).toBe(201);
+    expect(body.data.interaction).toMatchObject({
+      reason: "B2B_REGISTRATION",
+      result: "CALLBACK_REQUESTED"
+    });
+    expect(body.data.task.sourceInteractionId).toBe(body.data.interaction.id);
+    expect(body.data.task.assignedUser.id).toBe("usr-cs-001");
+
+    const historyResponse = await worker.fetch(
+      new Request("http://localhost/api/customers/cus-007/interactions?pageSize=10"),
+      env
+    );
+    const history = (await historyResponse.json()) as {
+      data: Array<{ id: string; notes: string }>;
+    };
+    expect(history.data[0]).toMatchObject({
+      id: body.data.interaction.id,
+      notes: "Customer asked for a callback after reviewing stock."
+    });
+
+    const queueResponse = await worker.fetch(
+      new Request("http://localhost/api/customer-service/queue?limit=100"),
+      env
+    );
+    const queue = (await queueResponse.json()) as {
+      data: {
+        items: Array<{ customerId: string; priority: { priorityScore: number } }>;
+        summary: { callsCompletedToday: number };
+      };
+    };
+    expect(queue.data.summary.callsCompletedToday).toBe(2);
+    expect(
+      queue.data.items.find((item) => item.customerId === "cus-007")?.priority.priorityScore
+    ).toBeLessThan(25);
+  });
+
+  it("creates a Sales handoff linked to its source call", async () => {
+    vi.setSystemTime(new Date("2026-09-11T12:00:00.000Z"));
+    const env = createTestEnv();
+    const response = await postCall(env, "cus-003", {
+      followUpAt: "2026-09-16T10:00:00.000Z",
+      idempotencyKey: "test-sales-handoff-001",
+      nextAction: "SALES_VISIT",
+      notes: "Buyer needs an in-person assortment review.",
+      priority: "CRITICAL",
+      reason: "RETENTION",
+      result: "NEEDS_SALES_VISIT",
+      salesRepUserId: "usr-sales-002"
+    });
+    const body = (await response.json()) as {
+      data: { interaction: { id: string }; task: { assignedUser: { id: string } } };
+    };
+
+    expect(response.status).toBe(201);
+    expect(body.data.task.assignedUser.id).toBe("usr-sales-002");
+
+    const salesResponse = await worker.fetch(new Request("http://localhost/api/sales/tasks"), env);
+    const sales = (await salesResponse.json()) as {
+      data: Array<{
+        sourceInteractionId: string;
+        sourceReason: string;
+        sourceNotes: string;
+        requestedBy: { id: string };
+      }>;
+    };
+    expect(sales.data).toContainEqual(
+      expect.objectContaining({
+        requestedBy: expect.objectContaining({ id: "usr-cs-001" }),
+        sourceInteractionId: body.data.interaction.id,
+        sourceNotes: "Buyer needs an in-person assortment review.",
+        sourceReason: "RETENTION"
+      })
+    );
+  });
+
+  it("rejects invalid call values and invalid Sales Representatives", async () => {
+    vi.setSystemTime(new Date("2026-09-11T12:00:00.000Z"));
+    const env = createTestEnv();
+    const invalidCode = await postCall(env, "cus-003", {
+      idempotencyKey: "test-invalid-code",
+      nextAction: "NONE",
+      reason: "UNCONTROLLED_VALUE",
+      result: "RESOLVED"
+    });
+    expect(invalidCode.status).toBe(422);
+
+    const invalidRep = await postCall(env, "cus-003", {
+      followUpAt: "2026-09-16T10:00:00.000Z",
+      idempotencyKey: "test-invalid-sales-rep",
+      nextAction: "SALES_VISIT",
+      reason: "RETENTION",
+      result: "NEEDS_SALES_VISIT",
+      salesRepUserId: "usr-cs-002"
+    });
+    const body = (await invalidRep.json()) as { error: { code: string } };
+    expect(invalidRep.status).toBe(422);
+    expect(body.error.code).toBe("SALES_REP_NOT_FOUND");
+
+    const missingCustomer = await postCall(env, "cus-missing", {
+      idempotencyKey: "test-missing-customer",
+      nextAction: "NONE",
+      reason: "GENERAL",
+      result: "RESOLVED"
+    });
+    expect(missingCustomer.status).toBe(404);
+  });
+
+  it("returns the original workflow for a duplicate submission", async () => {
+    vi.setSystemTime(new Date("2026-09-11T12:00:00.000Z"));
+    const env = createTestEnv();
+    const requestBody = {
+      idempotencyKey: "test-idempotency-001",
+      nextAction: "NONE",
+      notes: "Resolved on first call.",
+      reason: "GENERAL",
+      result: "RESOLVED"
+    };
+    const first = await postCall(env, "cus-001", requestBody);
+    const second = await postCall(env, "cus-001", requestBody);
+    const firstBody = (await first.json()) as {
+      data: { duplicate: boolean; interaction: { id: string } };
+    };
+    const secondBody = (await second.json()) as {
+      data: { duplicate: boolean; interaction: { id: string } };
+    };
+
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(200);
+    expect(firstBody.data.duplicate).toBe(false);
+    expect(secondBody.data.duplicate).toBe(true);
+    expect(secondBody.data.interaction.id).toBe(firstBody.data.interaction.id);
+
+    const conflictingCustomer = await postCall(env, "cus-002", requestBody);
+    expect(conflictingCustomer.status).toBe(409);
+  });
 });
+
+function postCall(env: Env, customerId: string, body: unknown): Promise<Response> {
+  return worker.fetch(
+    new Request(`http://localhost/api/customers/${customerId}/interactions`, {
+      body: JSON.stringify(body),
+      headers: { "content-type": "application/json" },
+      method: "POST"
+    }),
+    env
+  );
+}

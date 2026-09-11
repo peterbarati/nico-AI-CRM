@@ -108,3 +108,31 @@ function mapTask(row: TaskRow): TaskItem {
     updatedAt: row.updated_at
   };
 }
+
+export async function getTaskBySourceInteractionId(
+  context: DatabaseContext,
+  interactionId: string
+): Promise<TaskItem | null> {
+  const row = await context.db
+    .prepare(
+      `
+      SELECT t.id, t.customer_id, t.customer_location_id, t.assigned_user_id,
+        au.name AS assigned_user_name, au.email AS assigned_user_email, au.role AS assigned_user_role,
+        t.created_by_user_id, cu.name AS created_by_user_name, cu.email AS created_by_user_email,
+        cu.role AS created_by_user_role, t.source_interaction_id, c.company_name AS customer_name,
+        t.title, t.description, t.task_type, t.priority, t.status, t.due_at, t.completed_at,
+        t.created_at, t.updated_at
+      FROM tasks t
+      JOIN users au ON au.id = t.assigned_user_id
+      LEFT JOIN users cu ON cu.id = t.created_by_user_id
+      LEFT JOIN customers c ON c.id = t.customer_id
+      WHERE t.source_interaction_id = ?
+      ORDER BY t.created_at DESC
+      LIMIT 1
+    `
+    )
+    .bind(interactionId)
+    .first<TaskRow>();
+
+  return row ? mapTask(row) : null;
+}
