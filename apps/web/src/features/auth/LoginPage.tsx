@@ -9,20 +9,18 @@ export function LoginPage({
   error: AuthApiError | null;
   onSelect: (userId: string) => Promise<void>;
 }) {
-  const [configuration, setConfiguration] = useState<AuthConfiguration | null>(null);
-  const [users, setUsers] = useState<MockUser[]>([]);
+  const [bootstrap, setBootstrap] = useState<LoginBootstrapState>(initialLoginBootstrapState);
   const [localError, setLocalError] = useState<string | null>(null);
   const [selecting, setSelecting] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchAuthConfiguration()
-      .then(async (config) => {
-        setConfiguration(config);
-        if (config.mode === "MOCK") setUsers(await fetchMockUsers());
-      })
-      .catch((error: unknown) =>
-        setLocalError(error instanceof Error ? error.message : "Authentication is unavailable.")
-      );
+    let active = true;
+    void loadLoginBootstrap().then((state) => {
+      if (active) setBootstrap(state);
+    });
+    return () => {
+      active = false;
+    };
   }, []);
 
   async function select(userId: string) {
@@ -37,28 +35,83 @@ export function LoginPage({
   }
 
   return (
+    <LoginPageContent
+      bootstrap={bootstrap}
+      error={error}
+      localError={localError}
+      selecting={selecting}
+      select={select}
+    />
+  );
+}
+
+export interface LoginBootstrapState {
+  loading: boolean;
+  configuration: AuthConfiguration | null;
+  users: MockUser[];
+  error: string | null;
+}
+
+export const initialLoginBootstrapState: LoginBootstrapState = {
+  loading: true,
+  configuration: null,
+  users: [],
+  error: null
+};
+
+export async function loadLoginBootstrap(): Promise<LoginBootstrapState> {
+  try {
+    const configuration = await fetchAuthConfiguration();
+    const users = configuration.mode === "MOCK" ? await fetchMockUsers() : [];
+    return { loading: false, configuration, users, error: null };
+  } catch (error) {
+    return {
+      loading: false,
+      configuration: null,
+      users: [],
+      error: error instanceof Error ? error.message : "Authentication is unavailable."
+    };
+  }
+}
+
+export function LoginPageContent({
+  error,
+  bootstrap,
+  localError,
+  selecting,
+  select
+}: {
+  error: AuthApiError | null;
+  bootstrap: LoginBootstrapState;
+  localError: string | null;
+  selecting: string | null;
+  select: (userId: string) => Promise<void>;
+}) {
+  const message =
+    localError ??
+    bootstrap.error ??
+    (error && error.code !== "UNAUTHENTICATED" ? error.message : null);
+
+  return (
     <main className="auth-screen">
       <section className="auth-panel">
         <p className="eyebrow">NICO AI CRM</p>
         <h1>Sign in</h1>
-        {error && error.code !== "UNAUTHENTICATED" ? (
-          <p className="auth-message">{error.message}</p>
-        ) : null}
-        {localError ? <p className="auth-message">{localError}</p> : null}
-        {!configuration ? <p>Loading authentication options...</p> : null}
-        {configuration?.mode === "OIDC" ? (
-          configuration.loginUrl ? (
-            <a className="primary-link" href={configuration.loginUrl}>
+        {message ? <p className="auth-message">{message}</p> : null}
+        {bootstrap.loading ? <p>Loading authentication options...</p> : null}
+        {bootstrap.configuration?.mode === "OIDC" ? (
+          bootstrap.configuration.loginUrl ? (
+            <a className="primary-link" href={bootstrap.configuration.loginUrl}>
               Continue with company identity
             </a>
           ) : (
             <p className="auth-message">Company sign-in URL is not configured.</p>
           )
         ) : null}
-        {configuration?.mode === "MOCK" ? (
+        {bootstrap.configuration?.mode === "MOCK" ? (
           <div className="mock-user-list">
             <p className="muted">Local development identities</p>
-            {users.map((user) => (
+            {bootstrap.users.map((user) => (
               <button
                 disabled={selecting !== null}
                 key={user.id}

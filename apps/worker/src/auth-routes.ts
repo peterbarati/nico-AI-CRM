@@ -6,6 +6,7 @@ import {
 } from "./auth";
 import { getAuthUserById, listAuthUsers, type DatabaseContext } from "@nico-ai-crm/db";
 import type { AuthenticatedActor } from "@nico-ai-crm/auth";
+import type { ApiErrorResponse, ApiSuccess } from "@nico-ai-crm/shared";
 import type { AuthEnv } from "./auth";
 
 const jsonHeaders = { "content-type": "application/json; charset=utf-8" };
@@ -106,15 +107,17 @@ export function authErrorResponse(error: unknown): Response {
   throw error;
 }
 
-function success(data: unknown, init?: ResponseInit): Response {
-  return new Response(JSON.stringify({ ok: true, data }), {
+function success<T>(data: T, init?: ResponseInit): Response {
+  const body: ApiSuccess<T> = { ok: true, data };
+  return new Response(JSON.stringify(body), {
     ...init,
     headers: { ...jsonHeaders, ...init?.headers }
   });
 }
 
 function failure(status: number, code: string, message: string): Response {
-  return new Response(JSON.stringify({ ok: false, error: { code, message } }), {
+  const body: ApiErrorResponse = { ok: false, error: { code, message } };
+  return new Response(JSON.stringify(body), {
     status,
     headers: jsonHeaders
   });

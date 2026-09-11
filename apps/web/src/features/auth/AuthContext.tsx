@@ -25,11 +25,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(null);
     } catch (error) {
       setActor(null);
-      setError(
-        error instanceof AuthApiError
-          ? error
-          : new AuthApiError("AUTH_REQUEST_FAILED", "Authentication is unavailable.", 0)
-      );
+      if (isLoggedOutError(error)) {
+        setError(null);
+      } else {
+        setError(
+          error instanceof AuthApiError
+            ? error
+            : new AuthApiError("AUTH_REQUEST_FAILED", "Authentication is unavailable.", 0)
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -68,6 +72,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   }
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function isLoggedOutError(error: unknown): boolean {
+  return error instanceof AuthApiError && error.status === 401 && error.code === "UNAUTHENTICATED";
 }
 
 export function useAuth(): AuthState {

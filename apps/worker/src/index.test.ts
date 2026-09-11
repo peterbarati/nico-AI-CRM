@@ -652,6 +652,28 @@ describe("AI assistant and settings API", () => {
 });
 
 describe("authentication and authorization", () => {
+  it("returns shared success contracts for mock auth bootstrap endpoints", async () => {
+    const env = createTestEnv();
+    const config = await application.fetch(new Request("http://localhost/api/auth/config"), env);
+    const users = await application.fetch(new Request("http://localhost/api/auth/mock-users"), env);
+    expect(config.status).toBe(200);
+    expect(config.headers.get("content-type")).toContain("application/json");
+    expect(await config.json()).toEqual({
+      ok: true,
+      data: { mode: "MOCK", loginUrl: null, logoutUrl: null }
+    });
+    expect(users.status).toBe(200);
+    expect(await users.json()).toMatchObject({
+      ok: true,
+      data: expect.arrayContaining([
+        expect.objectContaining({ role: "admin" }),
+        expect.objectContaining({ role: "manager" }),
+        expect.objectContaining({ role: "customer_service" }),
+        expect.objectContaining({ role: "sales_rep" })
+      ])
+    });
+  });
+
   it("returns 401 without an identity and fails closed when OIDC is incomplete", async () => {
     const env = createTestEnv();
     const unauthenticated = await application.fetch(
@@ -665,8 +687,9 @@ describe("authentication and authorization", () => {
       { ...env, AUTH_MODE: "oidc" }
     );
     expect(unauthenticated.status).toBe(401);
-    expect(await unauthenticated.json()).toMatchObject({
-      error: { code: "UNAUTHENTICATED" }
+    expect(await unauthenticated.json()).toEqual({
+      ok: false,
+      error: { code: "UNAUTHENTICATED", message: "Authentication required." }
     });
     expect(misconfigured.status).toBe(503);
     expect(await misconfigured.json()).toMatchObject({
