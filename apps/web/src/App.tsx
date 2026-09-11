@@ -5,6 +5,7 @@ import { CustomerServicePage } from "./features/customer-service/CustomerService
 import { ComingSoonPage } from "./pages/ComingSoonPage";
 import { SalesPage } from "./features/sales/SalesPage";
 import { ActivityReportPage } from "./features/reports/activity/ActivityReportPage";
+import { ManagementDashboardPage } from "./features/dashboard/ManagementDashboardPage";
 
 const navItems: NavItem[] = [
   { label: "Dashboard", path: "/" },
@@ -44,7 +45,9 @@ export function App() {
 
   const customerDetailMatch = path.match(/^\/customers\/([^/]+)$/);
   const page =
-    path === "/customers" || customerDetailMatch ? (
+    path === "/" || path === "/dashboard" ? (
+      <ManagementDashboardPage />
+    ) : path === "/customers" || customerDetailMatch ? (
       <CustomersPage customerId={customerDetailMatch?.[1]} onNavigate={navigate} />
     ) : path === "/customer-service" ? (
       <CustomerServicePage onNavigate={navigate} />

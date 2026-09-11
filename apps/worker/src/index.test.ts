@@ -63,12 +63,20 @@ class TestD1Database {
       this.database.exec(
         readFileSync(join(process.cwd(), "migrations/0003_sales_workflow_links.sql"), "utf8")
       );
+      this.database.exec(
+        readFileSync(
+          join(process.cwd(), "migrations/0004_deterministic_kpi_foundation.sql"),
+          "utf8"
+        )
+      );
     }
     const seed = readFileSync(join(process.cwd(), "packages/db/seeds/demo.sql"), "utf8");
     this.database.exec(
       applySalesWorkflowMigration
         ? seed
-        : seed.replace(/^UPDATE sales_visits SET source_task_id.*;\r?\n/gm, "")
+        : seed
+            .split("-- Deterministic KPI demo facts.")[0]
+            .replace(/^UPDATE sales_visits SET source_task_id.*;\r?\n/gm, "")
     );
   }
 
@@ -424,6 +432,77 @@ describe("Sales visit workflow API", () => {
     expect(body.data.period.timezone).toBe("Europe/Bratislava");
     expect(body.data.metrics.callsCompleted).toBe(1);
     expect(body.data.users).toHaveLength(3);
+  });
+});
+
+describe("management KPI API", () => {
+  it("returns the monthly dashboard and explainable user KPI breakdown", async () => {
+    vi.setSystemTime(new Date("2026-09-11T12:00:00.000Z"));
+    const response = await worker.fetch(
+      new Request("http://localhost/api/dashboard?period=month"),
+      createTestEnv()
+    );
+    const body = (await response.json()) as {
+      data: {
+        dashboard: { turnover: number; salesTarget: number };
+        users: Array<{ userId: string; kpis: Array<{ kpiCode: string; source: string }> }>;
+      };
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.data.dashboard).toMatchObject({ turnover: 2405, salesTarget: 6000 });
+    expect(body.data.users.find((user) => user.userId === "usr-cs-001")?.kpis).toContainEqual(
+      expect.objectContaining({
+        kpiCode: "CS_REACTIVATIONS",
+        source: expect.stringContaining("Attributed order")
+      })
+    );
+  });
+
+  it("supports role and user filters", async () => {
+    vi.setSystemTime(new Date("2026-09-11T12:00:00.000Z"));
+    const env = createTestEnv();
+    const roleResponse = await worker.fetch(
+      new Request("http://localhost/api/kpi?period=month&role=sales_rep"),
+      env
+    );
+    const roleBody = (await roleResponse.json()) as { data: { users: Array<{ role: string }> } };
+    expect(roleBody.data.users).toHaveLength(3);
+    expect(roleBody.data.users.every((user) => user.role === "sales_rep")).toBe(true);
+
+    const userResponse = await worker.fetch(
+      new Request("http://localhost/api/kpi/users/usr-sales-003?period=month"),
+      env
+    );
+    expect((await userResponse.json()) as object).toMatchObject({
+      ok: true,
+      data: { user: { userId: "usr-sales-003", reactivations: 1 } }
+    });
+  });
+
+  it("validates periods, ranges, roles, and missing users", async () => {
+    const env = createTestEnv();
+    const invalidPeriod = await worker.fetch(
+      new Request("http://localhost/api/dashboard?period=quarter"),
+      env
+    );
+    const invalidRange = await worker.fetch(
+      new Request("http://localhost/api/dashboard?period=custom&from=2026-09-10&to=2026-09-01"),
+      env
+    );
+    const invalidRole = await worker.fetch(
+      new Request("http://localhost/api/kpi?role=manager"),
+      env
+    );
+    const missingUser = await worker.fetch(
+      new Request("http://localhost/api/kpi/users/missing"),
+      env
+    );
+
+    expect(invalidPeriod.status).toBe(400);
+    expect(invalidRange.status).toBe(400);
+    expect(invalidRole.status).toBe(400);
+    expect(missingUser.status).toBe(404);
   });
 });
 

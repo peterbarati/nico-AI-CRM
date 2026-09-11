@@ -13,6 +13,7 @@ import {
   getSystemConfigByPrefix,
   getSystemConfigValue,
   getActivityReport,
+  getManagementKpiData,
   getSalesTaskQueueItem,
   getSalesVisitBySourceTaskId,
   listCustomerServiceCandidates,
@@ -32,10 +33,22 @@ import {
   startSalesVisit,
   type CustomerListQuery,
   type CustomerSortField,
+  type KpiDefinitionRecord,
+  type KpiTargetRecord,
+  type ManagementKpiData,
+  type PerformanceRole,
   type PaginationInput,
   type SortDirection
 } from "@nico-ai-crm/db";
 import {
+  calculateKpiResult,
+  calculatePeriodProgressPercent,
+  calculateWeightedSummary,
+  prorateTarget,
+  type KpiResult
+} from "@nico-ai-crm/kpi-engine";
+import {
+  getBusinessDate,
   getBusinessDateRange,
   isValidBusinessTimezone,
   validateCreateCallRequest,
@@ -379,6 +392,16 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
     }
   }
 
+  if (url.pathname === "/api/dashboard" || url.pathname === "/api/kpi") {
+    return handleManagementRequest(context, url, url.pathname === "/api/dashboard");
+  }
+
+  const userKpiRoute = url.pathname.match(/^\/api\/kpi\/users\/([^/]+)$/);
+  if (userKpiRoute) {
+    url.searchParams.set("userId", decodeURIComponent(userKpiRoute[1]));
+    return handleManagementRequest(context, url, false, true);
+  }
+
   if (url.pathname === "/api/customer-service/queue") {
     const now = new Date();
     const businessRange = await getCurrentBusinessDay(context, now);
@@ -532,6 +555,240 @@ async function getCurrentBusinessDay(context: ReturnType<typeof createDatabaseCo
 
 function parseActivityPreset(value: string | null): ActivityPeriodPreset {
   return value === "week" || value === "month" || value === "custom" ? value : "today";
+}
+
+async function handleManagementRequest(
+  context: ReturnType<typeof createDatabaseContext>,
+  url: URL,
+  includeDashboard: boolean,
+  requireUser = false
+): Promise<Response> {
+  const role = parsePerformanceRole(url.searchParams.get("role"));
+  if (role instanceof Response) return role;
+  const preset = parseKpiPeriod(url.searchParams.get("period"));
+  if (preset instanceof Response) return preset;
+  const now = new Date();
+  const timezone = await getBusinessTimezone(context);
+  let range;
+  try {
+    range = getManagementDateRange(preset, now, timezone, url);
+  } catch (error) {
+    return badRequest(error instanceof Error ? error.message : "Invalid KPI period.");
+  }
+  const [attributionDaysValue, reactivationDaysValue] = await Promise.all([
+    getSystemConfigValue(context, "kpi.attribution_window_days"),
+    getSystemConfigValue(context, "kpi.reactivation_inactivity_days")
+  ]);
+  const attributionWindowDays = positiveConfig(attributionDaysValue, 30);
+  const reactivationInactivityDays = positiveConfig(reactivationDaysValue, 90);
+  const data = await getManagementKpiData(context, {
+    range,
+    businessDate: getBusinessDate(now, timezone),
+    nowUtc: now.toISOString(),
+    role,
+    userId: url.searchParams.get("userId") ?? undefined,
+    attributionWindowDays,
+    reactivationInactivityDays
+  });
+  if (requireUser && data.users.length === 0) return notFound("KPI user not found.");
+  const result = buildManagementResult(data, range, getBusinessDate(now, timezone), {
+    attributionWindowDays,
+    reactivationInactivityDays
+  });
+  if (requireUser) return ok({ period: result.period, user: result.users[0] });
+  return ok(
+    includeDashboard ? result : { period: result.period, roles: result.roles, users: result.users }
+  );
+}
+
+function buildManagementResult(
+  data: ManagementKpiData,
+  range: ReturnType<typeof getBusinessDateRange>,
+  businessDate: string,
+  config: { attributionWindowDays: number; reactivationInactivityDays: number }
+) {
+  const progress = calculatePeriodProgressPercent(range.fromDate, range.toDate, businessDate);
+  const users = data.users.map((user) => {
+    const definitions = data.definitions.filter((definition) => definition.role === user.role);
+    const kpis = definitions.map((definition) =>
+      makeKpiResult(definition, data.targets, user, range, progress)
+    );
+    return { ...user, kpis, overall: calculateWeightedSummary(kpis, progress) };
+  });
+  const roles = (["customer_service", "sales_rep"] as const)
+    .map((role) => {
+      const roleUsers = users.filter((user) => user.role === role);
+      if (roleUsers.length === 0) return null;
+      const kpis = data.definitions
+        .filter((definition) => definition.role === role)
+        .map((definition) => {
+          const userResults = roleUsers
+            .map((user) => user.kpis.find((kpi) => kpi.kpiCode === definition.code))
+            .filter((kpi): kpi is KpiResult => Boolean(kpi));
+          return calculateKpiResult({
+            actual: userResults.reduce((sum, kpi) => sum + kpi.actual, 0),
+            kpiCode: definition.code,
+            metricType: definition.metricType,
+            name: definition.name,
+            periodEnd: range.toDate,
+            periodProgressPercent: progress,
+            periodStart: range.fromDate,
+            source: userResults[0]?.source ?? definition.sourceKey,
+            target: userResults.reduce((sum, kpi) => sum + kpi.target, 0),
+            weight: userResults[0]?.weight ?? 0
+          });
+        });
+      return { role, kpis, overall: calculateWeightedSummary(kpis, progress) };
+    })
+    .filter((role) => role !== null);
+  const salesDefinition = data.definitions.find(
+    (definition) => definition.code === "SALES_TURNOVER"
+  );
+  const companyTarget = data.companyTargets.find(
+    (target) => target.kpiDefinitionId === salesDefinition?.id
+  );
+  const salesTarget = companyTarget
+    ? prorateTarget(
+        companyTarget.targetValue,
+        companyTarget.periodStart,
+        companyTarget.periodEnd,
+        range.fromDate,
+        range.toDate
+      )
+    : 0;
+  return {
+    period: { ...range, progressPercent: progress },
+    dashboard: {
+      ...data.dashboard,
+      salesTarget,
+      salesAchievementPercent:
+        salesTarget > 0 ? Math.round((data.dashboard.turnover / salesTarget) * 10000) / 100 : 0,
+      turnoverSource: "normalized_crm_orders" as const
+    },
+    roles,
+    users,
+    meta: {
+      attributionWindowDays: config.attributionWindowDays,
+      reactivationInactivityDays: config.reactivationInactivityDays,
+      reactivationDefinition: "prior_order_inactivity_then_attributed_activity_then_order"
+    }
+  };
+}
+
+function makeKpiResult(
+  definition: KpiDefinitionRecord,
+  targets: KpiTargetRecord[],
+  user: ManagementKpiData["users"][number],
+  range: ReturnType<typeof getBusinessDateRange>,
+  progress: number
+): KpiResult {
+  const target =
+    targets.find(
+      (candidate) => candidate.kpiDefinitionId === definition.id && candidate.userId === user.userId
+    ) ??
+    targets.find(
+      (candidate) =>
+        candidate.kpiDefinitionId === definition.id &&
+        candidate.userId === null &&
+        candidate.role === user.role
+    );
+  return calculateKpiResult({
+    actual: actualFor(definition.sourceKey, user),
+    kpiCode: definition.code,
+    metricType: definition.metricType,
+    name: definition.name,
+    periodEnd: range.toDate,
+    periodProgressPercent: progress,
+    periodStart: range.fromDate,
+    source: sourceDescription(definition.sourceKey),
+    target: target
+      ? prorateTarget(
+          target.targetValue,
+          target.periodStart,
+          target.periodEnd,
+          range.fromDate,
+          range.toDate
+        )
+      : 0,
+    weight: target?.weight ?? 0
+  });
+}
+
+function actualFor(
+  sourceKey: KpiDefinitionRecord["sourceKey"],
+  user: ManagementKpiData["users"][number]
+) {
+  switch (sourceKey) {
+    case "attributed_turnover":
+      return user.attributedTurnover;
+    case "calls_completed":
+      return user.callsCompleted;
+    case "visits_completed":
+      return user.visitsCompleted;
+    case "reactivations":
+      return user.reactivations;
+    case "b2b_activations":
+      return user.b2bActivations;
+  }
+}
+
+function sourceDescription(sourceKey: KpiDefinitionRecord["sourceKey"]): string {
+  const sources = {
+    attributed_turnover:
+      "Completed normalized CRM orders attributed to the latest qualifying CRM activity",
+    calls_completed: "customer_interactions where interaction_type = CALL",
+    visits_completed: "sales_visits where status = completed",
+    reactivations: "Attributed order after configured prior inactivity",
+    b2b_activations: "Structured b2b_activations records"
+  };
+  return sources[sourceKey];
+}
+
+function parsePerformanceRole(value: string | null): PerformanceRole | undefined | Response {
+  if (!value) return undefined;
+  if (value === "customer_service" || value === "sales_rep") return value;
+  return badRequest("Supported KPI roles are customer_service and sales_rep.");
+}
+
+function parseKpiPeriod(value: string | null): ActivityPeriodPreset | Response {
+  if (!value) return "month";
+  if (["day", "week", "month", "previous_month", "custom"].includes(value)) {
+    return value as ActivityPeriodPreset;
+  }
+  return badRequest("Supported KPI periods are day, week, month, previous_month, and custom.");
+}
+
+function getManagementDateRange(
+  preset: ActivityPeriodPreset,
+  now: Date,
+  timezone: string,
+  url: URL
+) {
+  const base = getBusinessDateRange(
+    preset,
+    now,
+    timezone,
+    url.searchParams.get("from") ?? undefined,
+    url.searchParams.get("to") ?? undefined
+  );
+  if (preset !== "month" && preset !== "week") return base;
+  const start = new Date(`${base.fromDate}T00:00:00.000Z`);
+  const end =
+    preset === "week"
+      ? new Date(start.getTime() + 6 * 86_400_000)
+      : new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 0));
+  return getBusinessDateRange(
+    "custom",
+    now,
+    timezone,
+    base.fromDate,
+    end.toISOString().slice(0, 10)
+  );
+}
+
+function positiveConfig(value: string | null, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 function parseSalesDueFilter(value: string | null) {

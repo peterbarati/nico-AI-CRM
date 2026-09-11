@@ -7,6 +7,7 @@ import {
   createDatabaseContext,
   countCompletedCustomerServiceCallsToday,
   getCustomerOverview,
+  getManagementKpiData,
   getSystemConfigByPrefix,
   listCustomerServiceCandidates,
   listCustomerOrders,
@@ -72,6 +73,9 @@ class TestD1Database {
     this.database.exec(
       readFileSync(join(process.cwd(), "migrations/0003_sales_workflow_links.sql"), "utf8")
     );
+    this.database.exec(
+      readFileSync(join(process.cwd(), "migrations/0004_deterministic_kpi_foundation.sql"), "utf8")
+    );
   }
 
   exec(sql: string): void {
@@ -112,13 +116,81 @@ describe("D1 schema and seed data", () => {
     });
 
     expect(JSON.parse(output)).toMatchObject({
-      tables: 18,
+      tables: 20,
       customers: 20,
       users: 8,
       segments: 9,
       search: ["cus-002"],
       orders: ["ord-002", "ord-001"]
     });
+  });
+});
+
+describe("management KPI repositories", () => {
+  const query = {
+    attributionWindowDays: 30,
+    businessDate: "2026-09-11",
+    nowUtc: "2026-09-11T12:00:00.000Z",
+    range: {
+      fromDate: "2026-09-01",
+      toDate: "2026-09-30",
+      fromUtc: "2026-08-31T22:00:00.000Z",
+      toUtcExclusive: "2026-09-30T22:00:00.000Z",
+      timezone: "Europe/Bratislava"
+    },
+    reactivationInactivityDays: 90
+  } as const;
+
+  it("retrieves configured targets and deterministic user actuals", async () => {
+    const result = await getManagementKpiData(createSeededContext(), query);
+    const customerService = result.users.find((user) => user.userId === "usr-cs-001");
+    const sales = result.users.find((user) => user.userId === "usr-sales-003");
+
+    expect(result.definitions).toHaveLength(8);
+    expect(result.targets).toHaveLength(8);
+    expect(customerService).toMatchObject({ callsCompleted: 1, reactivations: 1 });
+    expect(customerService?.attributedTurnover).toBe(450);
+    expect(sales).toMatchObject({ reactivations: 1, attributedTurnover: 800 });
+    expect(result.users.find((user) => user.userId === "usr-cs-003")?.b2bActivations).toBe(1);
+    expect(result.users.find((user) => user.userId === "usr-sales-002")?.b2bActivations).toBe(1);
+  });
+
+  it("returns company dashboard aggregates and role filtering", async () => {
+    const result = await getManagementKpiData(createSeededContext(), {
+      ...query,
+      role: "customer_service"
+    });
+
+    expect(result.users).toHaveLength(3);
+    expect(result.users.every((user) => user.role === "customer_service")).toBe(true);
+    expect(result.dashboard).toMatchObject({
+      turnover: 2405,
+      reactivatedCustomers: 2,
+      callsCompleted: 3,
+      visitsCompleted: 1
+    });
+    expect(result.dashboard.b2bPenetrationPercent).toBeGreaterThan(0);
+  });
+
+  it("honors the attribution window and returns zeroes for an empty period", async () => {
+    const narrowAttribution = await getManagementKpiData(createSeededContext(), {
+      ...query,
+      attributionWindowDays: 5
+    });
+    expect(narrowAttribution.dashboard.reactivatedCustomers).toBe(0);
+
+    const empty = await getManagementKpiData(createSeededContext(), {
+      ...query,
+      range: {
+        ...query.range,
+        fromDate: "2027-01-01",
+        toDate: "2027-01-31",
+        fromUtc: "2026-12-31T23:00:00.000Z",
+        toUtcExclusive: "2027-01-31T23:00:00.000Z"
+      }
+    });
+    expect(empty.dashboard.turnover).toBe(0);
+    expect(empty.users.every((user) => user.attributedTurnover === 0)).toBe(true);
   });
 });
 

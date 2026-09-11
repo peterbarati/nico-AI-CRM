@@ -1,4 +1,4 @@
-export type ActivityPeriodPreset = "today" | "week" | "month" | "custom";
+export type ActivityPeriodPreset = "today" | "day" | "week" | "month" | "previous_month" | "custom";
 
 export interface BusinessDateRange {
   fromDate: string;
@@ -40,6 +40,10 @@ export function getBusinessDateRange(
     from = addDays(today, -(weekday === 0 ? 6 : weekday - 1));
   } else if (preset === "month") {
     from = { year: today.year, month: today.month, day: 1 };
+  } else if (preset === "previous_month") {
+    const previousMonthLastDay = addDays({ year: today.year, month: today.month, day: 1 }, -1);
+    from = { year: previousMonthLastDay.year, month: previousMonthLastDay.month, day: 1 };
+    to = previousMonthLastDay;
   } else if (preset === "custom") {
     if (!customFrom || !customTo) {
       throw new Error("Custom activity period requires from and to dates.");

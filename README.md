@@ -73,6 +73,8 @@ curl http://localhost:8787/api/customer-service/queue
 curl http://localhost:8787/api/users?role=sales_rep
 curl http://localhost:8787/api/sales/tasks
 curl http://localhost:8787/api/reports/activity?period=week
+curl http://localhost:8787/api/dashboard?period=month
+curl http://localhost:8787/api/kpi?role=customer_service
 ```
 
 The call logging and Customer Service to Sales handoff workflow is documented in
@@ -81,6 +83,10 @@ The call logging and Customer Service to Sales handoff workflow is documented in
 The Sales visit lifecycle and activity aggregates are documented in
 [`docs/sales-workflow.md`](docs/sales-workflow.md) and
 [`docs/activity-reporting.md`](docs/activity-reporting.md).
+
+The deterministic KPI engine and management dashboard are documented in
+[`docs/kpi-engine.md`](docs/kpi-engine.md) and
+[`docs/management-dashboard.md`](docs/management-dashboard.md).
 
 ## Quality Checks
 

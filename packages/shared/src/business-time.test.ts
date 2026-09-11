@@ -36,6 +36,11 @@ describe("business timezone utilities", () => {
 
     expect(getBusinessDateRange("week", now, "Europe/Bratislava").fromDate).toBe("2026-09-07");
     expect(getBusinessDateRange("month", now, "Europe/Bratislava").fromDate).toBe("2026-09-01");
+    expect(getBusinessDateRange("day", now, "Europe/Bratislava").fromDate).toBe("2026-09-11");
+    expect(getBusinessDateRange("previous_month", now, "Europe/Bratislava")).toMatchObject({
+      fromDate: "2026-08-01",
+      toDate: "2026-08-31"
+    });
     expect(
       getBusinessDateRange("custom", now, "Europe/Bratislava", "2026-09-02", "2026-09-04")
     ).toMatchObject({ fromDate: "2026-09-02", toDate: "2026-09-04" });

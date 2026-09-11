@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@nico-ai-crm/kpi-engine": "0.1.0",
     "@nico-ai-crm/shared": "0.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

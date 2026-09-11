@@ -396,6 +396,69 @@ textarea {
   grid-template-columns: repeat(4, minmax(150px, 1fr));
 }
 
+.dashboard-metric-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(6, minmax(130px, 1fr));
+}
+
+.dashboard-filters {
+  grid-template-columns: repeat(5, minmax(150px, 1fr));
+}
+
+.dashboard-plan {
+  align-items: center;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(180px, 0.7fr) minmax(240px, 1.8fr) minmax(220px, 1fr);
+}
+
+.dashboard-plan strong {
+  display: block;
+  font-size: 1.25rem;
+  margin-top: 5px;
+}
+
+.dashboard-plan progress {
+  accent-color: #24734f;
+  height: 14px;
+  width: 100%;
+}
+
+.dashboard-plan small,
+.kpi-source {
+  color: #66778a;
+}
+
+.kpi-table {
+  min-width: 980px;
+}
+
+.kpi-status {
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 6px 8px;
+  white-space: nowrap;
+}
+
+.kpi-status--COMPLETED,
+.kpi-status--ON_TRACK {
+  background: #e3f5ec;
+  color: #24734f;
+}
+
+.kpi-status--AT_RISK {
+  background: #fde8c5;
+  color: #885313;
+}
+
+.kpi-status--BEHIND {
+  background: #fdebea;
+  color: #a64034;
+}
+
 .cs-summary-grid {
   display: grid;
   gap: 12px;
@@ -696,6 +759,7 @@ textarea {
   }
 
   .filter-panel,
+  .dashboard-metric-grid,
   .metric-grid,
   .cs-summary-grid,
   .detail-layout {
@@ -711,6 +775,8 @@ textarea {
   }
 
   .filter-panel,
+  .dashboard-metric-grid,
+  .dashboard-plan,
   .metric-grid,
   .cs-summary-grid,
   .detail-layout,

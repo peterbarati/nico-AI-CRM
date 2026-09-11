@@ -193,9 +193,9 @@ INSERT OR IGNORE INTO customer_campaigns (id, campaign_id, customer_id, sent_at,
   ('cuc-004', 'cmp-002', 'cus-001', '2026-09-02T08:00:00.000Z', '2026-09-02T11:00:00.000Z', '2026-09-02T11:05:00.000Z', '2026-09-03T10:00:00.000Z', 'ord-002', '2026-09-02T08:00:00.000Z', '2026-09-03T10:00:00.000Z');
 
 INSERT OR IGNORE INTO kpi_definitions (id, code, name, description, metric_type, active, created_at, updated_at) VALUES
-  ('kpi-calls', 'CALLS_COMPLETED', 'Calls Completed', 'Completed Customer Service calls.', 'count', 1, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'),
-  ('kpi-visits', 'VISITS_COMPLETED', 'Visits Completed', 'Completed Sales Representative visits.', 'count', 1, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'),
-  ('kpi-turnover', 'TURNOVER', 'Turnover', 'Net sales turnover.', 'currency', 1, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z');
+  ('kpi-calls', 'CALLS_COMPLETED', 'Calls Completed', 'Legacy KPI superseded by role-aware definitions.', 'count', 0, '2026-01-01T00:00:00.000Z', '2026-09-11T00:00:00.000Z'),
+  ('kpi-visits', 'VISITS_COMPLETED', 'Visits Completed', 'Legacy KPI superseded by role-aware definitions.', 'count', 0, '2026-01-01T00:00:00.000Z', '2026-09-11T00:00:00.000Z'),
+  ('kpi-turnover', 'TURNOVER', 'Turnover', 'Legacy KPI superseded by role-aware definitions.', 'currency', 0, '2026-01-01T00:00:00.000Z', '2026-09-11T00:00:00.000Z');
 
 INSERT OR IGNORE INTO kpi_targets (id, kpi_definition_id, user_id, role, period_type, period_start, period_end, target_value, weight, created_at, updated_at) VALUES
   ('kpit-cs-calls-sep', 'kpi-calls', NULL, 'customer_service', 'month', '2026-09-01', '2026-09-30', 300, 1, '2026-09-01T00:00:00.000Z', '2026-09-01T00:00:00.000Z'),
@@ -231,3 +231,39 @@ INSERT OR IGNORE INTO system_config (key, value, value_type, description, update
 
 INSERT OR IGNORE INTO sync_runs (id, provider, entity_type, started_at, finished_at, status, imported_count, updated_count, skipped_count, failed_count, cursor, checkpoint, error_message, created_at, updated_at) VALUES
   ('sync-demo-customers', 'mock', 'customers', '2026-09-01T00:00:00.000Z', '2026-09-01T00:00:01.000Z', 'completed', 20, 0, 0, 0, NULL, 'demo-seed-2026-09', NULL, '2026-09-01T00:00:00.000Z', '2026-09-01T00:00:01.000Z');
+
+-- Deterministic KPI demo facts. These remain normalized CRM data, not simulated production claims.
+INSERT OR IGNORE INTO customer_interactions (id, customer_id, customer_location_id, user_id, interaction_type, reason, result, notes, next_action, follow_up_at, created_at, updated_at) VALUES
+  ('int-kpi-react-cs', 'cus-006', 'loc-006-main', 'usr-cs-001', 'CALL', 'REACTIVATION', 'RESOLVED', 'Demo reactivation contact preceding a new order.', NULL, NULL, '2026-08-25T09:00:00.000Z', '2026-08-25T09:00:00.000Z');
+
+INSERT OR IGNORE INTO sales_visits (id, customer_id, customer_location_id, sales_rep_id, source_task_id, planned_at, started_at, completed_at, status, result, notes, order_value, next_action, created_at, updated_at) VALUES
+  ('vis-kpi-react-sales', 'cus-018', 'loc-018-main', 'usr-sales-003', NULL, '2026-08-28T10:00:00.000Z', '2026-08-28T10:02:00.000Z', '2026-08-28T10:45:00.000Z', 'completed', 'INTERESTED', 'Demo reactivation visit preceding a new order.', 0, 'NONE', '2026-08-20T10:00:00.000Z', '2026-08-28T10:45:00.000Z');
+
+INSERT OR IGNORE INTO orders (id, external_id, customer_id, customer_location_id, order_number, order_date, net_amount, gross_amount, currency, status, source, created_at, updated_at) VALUES
+  ('ord-023', 'erp-ord-023', 'cus-006', 'loc-006-main', 'ORD-2026-0903', '2026-09-03', 450, 540, 'EUR', 'completed', 'mock_erp', '2026-09-03T10:00:00.000Z', '2026-09-03T10:00:00.000Z'),
+  ('ord-024', 'erp-ord-024', 'cus-018', 'loc-018-main', 'ORD-2026-0905-B', '2026-09-05', 800, 960, 'EUR', 'completed', 'mock_erp', '2026-09-05T10:00:00.000Z', '2026-09-05T10:00:00.000Z');
+
+INSERT OR IGNORE INTO order_items (id, order_id, product_id, external_product_id, sku, product_name, quantity, unit_price, total_price) VALUES
+  ('itm-026', 'ord-023', 'prd-005', 'erp-prd-005', 'NICO-PKG-001', 'Eco Packaging Set', 10, 45, 450),
+  ('itm-027', 'ord-024', 'prd-006', 'erp-prd-006', 'NICO-B2B-001', 'B2B Starter Bundle', 4, 200, 800);
+
+INSERT OR IGNORE INTO b2b_activations (id, customer_id, attributed_user_id, source_interaction_id, source_visit_id, activated_at, source, created_at, updated_at) VALUES
+  ('b2b-act-001', 'cus-007', 'usr-cs-003', 'int-003', NULL, '2026-09-06T08:00:00.000Z', 'crm', '2026-09-06T08:00:00.000Z', '2026-09-06T08:00:00.000Z'),
+  ('b2b-act-002', 'cus-008', 'usr-sales-002', NULL, 'vis-004', '2026-09-04T14:45:00.000Z', 'crm', '2026-09-04T14:45:00.000Z', '2026-09-04T14:45:00.000Z');
+
+INSERT OR IGNORE INTO kpi_targets (id, kpi_definition_id, user_id, role, period_type, period_start, period_end, target_value, weight, created_at, updated_at) VALUES
+  ('kpit-cs-turnover-sep', 'kpi-cs-turnover', NULL, 'customer_service', 'month', '2026-09-01', '2026-09-30', 1500, 0.60, '2026-09-01T00:00:00.000Z', '2026-09-01T00:00:00.000Z'),
+  ('kpit-cs-calls-v2-sep', 'kpi-cs-calls', NULL, 'customer_service', 'month', '2026-09-01', '2026-09-30', 30, 0.15, '2026-09-01T00:00:00.000Z', '2026-09-01T00:00:00.000Z'),
+  ('kpit-cs-react-sep', 'kpi-cs-reactivations', NULL, 'customer_service', 'month', '2026-09-01', '2026-09-30', 2, 0.20, '2026-09-01T00:00:00.000Z', '2026-09-01T00:00:00.000Z'),
+  ('kpit-cs-b2b-sep', 'kpi-cs-b2b', NULL, 'customer_service', 'month', '2026-09-01', '2026-09-30', 2, 0.05, '2026-09-01T00:00:00.000Z', '2026-09-01T00:00:00.000Z'),
+  ('kpit-sales-turnover-sep', 'kpi-sales-turnover', NULL, 'sales_rep', 'month', '2026-09-01', '2026-09-30', 2500, 0.50, '2026-09-01T00:00:00.000Z', '2026-09-01T00:00:00.000Z'),
+  ('kpit-sales-visits-v2-sep', 'kpi-sales-visits', NULL, 'sales_rep', 'month', '2026-09-01', '2026-09-30', 12, 0.25, '2026-09-01T00:00:00.000Z', '2026-09-01T00:00:00.000Z'),
+  ('kpit-sales-react-sep', 'kpi-sales-reactivations', NULL, 'sales_rep', 'month', '2026-09-01', '2026-09-30', 2, 0.15, '2026-09-01T00:00:00.000Z', '2026-09-01T00:00:00.000Z'),
+  ('kpit-sales-b2b-sep', 'kpi-sales-b2b', NULL, 'sales_rep', 'month', '2026-09-01', '2026-09-30', 2, 0.10, '2026-09-01T00:00:00.000Z', '2026-09-01T00:00:00.000Z');
+
+INSERT OR IGNORE INTO company_kpi_targets (id, kpi_definition_id, period_type, period_start, period_end, target_value, created_at, updated_at) VALUES
+  ('company-sales-sep-2026', 'kpi-sales-turnover', 'month', '2026-09-01', '2026-09-30', 6000, '2026-09-01T00:00:00.000Z', '2026-09-01T00:00:00.000Z');
+
+INSERT OR IGNORE INTO system_config (key, value, value_type, description, updated_at) VALUES
+  ('kpi.attribution_window_days', '30', 'number', 'Operational activity-to-order attribution window.', '2026-09-11T00:00:00.000Z'),
+  ('kpi.reactivation_inactivity_days', '90', 'number', 'Minimum prior order inactivity for a reactivation outcome.', '2026-09-11T00:00:00.000Z');
