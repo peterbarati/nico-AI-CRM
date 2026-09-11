@@ -170,11 +170,17 @@ INSERT OR IGNORE INTO tasks (id, customer_id, customer_location_id, assigned_use
   ('tsk-005', 'cus-006', 'loc-006-main', 'usr-sales-003', 'usr-manager-001', NULL, 'Plan reactivation visit', NULL, 'visit', 'urgent', 'open', '2026-09-20T09:00:00.000Z', NULL, '2026-09-01T09:00:00.000Z', '2026-09-01T09:00:00.000Z'),
   ('tsk-006', 'cus-001', 'loc-001-main', 'usr-sales-001', 'usr-sales-001', 'int-005', 'Send seasonal display preview', NULL, 'follow_up', 'normal', 'completed', '2026-09-03T10:00:00.000Z', '2026-09-03T09:30:00.000Z', '2026-08-30T12:10:00.000Z', '2026-09-03T09:30:00.000Z');
 
+INSERT OR IGNORE INTO tasks (id, customer_id, customer_location_id, assigned_user_id, created_by_user_id, source_interaction_id, title, description, task_type, priority, status, due_at, completed_at, created_at, updated_at) VALUES
+  ('tsk-007', 'cus-008', 'loc-008-main', 'usr-sales-002', 'usr-manager-001', NULL, 'Plan cross-sell follow-up visit', 'Review the customer product mix and schedule an on-site follow-up.', 'visit', 'normal', 'open', '2026-09-25T09:00:00.000Z', NULL, '2026-09-10T09:00:00.000Z', '2026-09-10T09:00:00.000Z');
+
 INSERT OR IGNORE INTO sales_visits (id, customer_id, customer_location_id, sales_rep_id, planned_at, started_at, completed_at, status, result, notes, order_value, created_at, updated_at) VALUES
   ('vis-001', 'cus-001', 'loc-001-main', 'usr-sales-001', '2026-08-30T11:00:00.000Z', '2026-08-30T11:05:00.000Z', '2026-08-30T12:00:00.000Z', 'completed', 'Seasonal display discussed', 'Good momentum.', 0, '2026-08-25T10:00:00.000Z', '2026-08-30T12:00:00.000Z'),
   ('vis-002', 'cus-003', 'loc-003-main', 'usr-sales-002', '2026-09-15T10:00:00.000Z', NULL, NULL, 'planned', NULL, 'Customer Service handoff.', NULL, '2026-09-07T11:15:00.000Z', '2026-09-07T11:15:00.000Z'),
   ('vis-003', 'cus-006', 'loc-006-main', 'usr-sales-003', '2026-09-20T09:00:00.000Z', NULL, NULL, 'planned', NULL, 'Reactivation candidate.', NULL, '2026-09-01T09:05:00.000Z', '2026-09-01T09:05:00.000Z'),
   ('vis-004', 'cus-008', 'loc-008-main', 'usr-sales-002', '2026-09-04T14:00:00.000Z', '2026-09-04T14:02:00.000Z', '2026-09-04T14:45:00.000Z', 'completed', 'Cross-sell accepted for review', 'Buyer wants coffee samples.', 0, '2026-09-02T10:00:00.000Z', '2026-09-04T14:45:00.000Z');
+
+UPDATE sales_visits SET source_task_id = 'tsk-002' WHERE id = 'vis-002' AND source_task_id IS NULL;
+UPDATE sales_visits SET source_task_id = 'tsk-005' WHERE id = 'vis-003' AND source_task_id IS NULL;
 
 INSERT OR IGNORE INTO campaigns (id, name, campaign_type, status, description, start_date, end_date, created_at, updated_at) VALUES
   ('cmp-001', 'September Reorder Push', 'retention', 'active', 'Synthetic demo campaign for reorder follow-up.', '2026-09-01', '2026-09-30', '2026-08-25T00:00:00.000Z', '2026-08-25T00:00:00.000Z'),
@@ -196,6 +202,7 @@ INSERT OR IGNORE INTO kpi_targets (id, kpi_definition_id, user_id, role, period_
   ('kpit-sales-visits-sep', 'kpi-visits', NULL, 'sales_rep', 'month', '2026-09-01', '2026-09-30', 80, 1, '2026-09-01T00:00:00.000Z', '2026-09-01T00:00:00.000Z');
 
 INSERT OR IGNORE INTO system_config (key, value, value_type, description, updated_at) VALUES
+  ('system.business_timezone', 'Europe/Bratislava', 'string', 'IANA timezone used for business-day boundaries and reporting.', '2026-09-11T00:00:00.000Z'),
   ('reorder_grace_days', '7', 'number', 'Extra days after expected reorder before customer becomes reorder due.', '2026-09-01T00:00:00.000Z'),
   ('at_risk_days', '30', 'number', 'Days since last order before customer is considered at risk.', '2026-09-01T00:00:00.000Z'),
   ('critical_inactivity_days', '60', 'number', 'Days since last order before customer is considered critical.', '2026-09-01T00:00:00.000Z'),

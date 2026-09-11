@@ -43,7 +43,8 @@ export async function listTasks(
       SELECT t.id, t.customer_id, t.customer_location_id, t.assigned_user_id,
         au.name AS assigned_user_name, au.email AS assigned_user_email, au.role AS assigned_user_role,
         t.created_by_user_id, cu.name AS created_by_user_name, cu.email AS created_by_user_email,
-        cu.role AS created_by_user_role, t.source_interaction_id, c.company_name AS customer_name,
+        cu.role AS created_by_user_role, t.source_interaction_id, NULL AS source_visit_id,
+        c.company_name AS customer_name,
         t.title, t.description, t.task_type, t.priority, t.status, t.due_at, t.completed_at,
         t.created_at, t.updated_at
       FROM tasks t
@@ -96,6 +97,7 @@ function mapTask(row: TaskRow): TaskItem {
           }
         : null,
     sourceInteractionId: row.source_interaction_id,
+    sourceVisitId: row.source_visit_id,
     customerName: row.customer_name,
     title: row.title,
     description: row.description,
@@ -119,7 +121,8 @@ export async function getTaskBySourceInteractionId(
       SELECT t.id, t.customer_id, t.customer_location_id, t.assigned_user_id,
         au.name AS assigned_user_name, au.email AS assigned_user_email, au.role AS assigned_user_role,
         t.created_by_user_id, cu.name AS created_by_user_name, cu.email AS created_by_user_email,
-        cu.role AS created_by_user_role, t.source_interaction_id, c.company_name AS customer_name,
+        cu.role AS created_by_user_role, t.source_interaction_id, NULL AS source_visit_id,
+        c.company_name AS customer_name,
         t.title, t.description, t.task_type, t.priority, t.status, t.due_at, t.completed_at,
         t.created_at, t.updated_at
       FROM tasks t
@@ -132,6 +135,49 @@ export async function getTaskBySourceInteractionId(
     `
     )
     .bind(interactionId)
+    .first<TaskRow>();
+
+  return row ? mapTask(row) : null;
+}
+
+export async function getTaskById(
+  context: DatabaseContext,
+  taskId: string
+): Promise<TaskItem | null> {
+  return getTaskByColumn(context, "t.id", taskId);
+}
+
+export async function getTaskBySourceVisitId(
+  context: DatabaseContext,
+  visitId: string
+): Promise<TaskItem | null> {
+  return getTaskByColumn(context, "t.source_visit_id", visitId);
+}
+
+async function getTaskByColumn(
+  context: DatabaseContext,
+  column: "t.id" | "t.source_visit_id",
+  value: string
+): Promise<TaskItem | null> {
+  const row = await context.db
+    .prepare(
+      `
+      SELECT t.id, t.customer_id, t.customer_location_id, t.assigned_user_id,
+        au.name AS assigned_user_name, au.email AS assigned_user_email, au.role AS assigned_user_role,
+        t.created_by_user_id, cu.name AS created_by_user_name, cu.email AS created_by_user_email,
+        cu.role AS created_by_user_role, t.source_interaction_id, t.source_visit_id,
+        c.company_name AS customer_name, t.title, t.description, t.task_type, t.priority,
+        t.status, t.due_at, t.completed_at, t.created_at, t.updated_at
+      FROM tasks t
+      JOIN users au ON au.id = t.assigned_user_id
+      LEFT JOIN users cu ON cu.id = t.created_by_user_id
+      LEFT JOIN customers c ON c.id = t.customer_id
+      WHERE ${column} = ?
+      ORDER BY t.created_at DESC
+      LIMIT 1
+    `
+    )
+    .bind(value)
     .first<TaskRow>();
 
   return row ? mapTask(row) : null;

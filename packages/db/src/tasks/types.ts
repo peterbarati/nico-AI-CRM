@@ -7,6 +7,7 @@ export interface TaskItem {
   assignedUser: UserReference;
   createdByUser: UserReference | null;
   sourceInteractionId: string | null;
+  sourceVisitId: string | null;
   customerName: string | null;
   title: string;
   description: string | null;
@@ -32,6 +33,7 @@ export interface TaskRow {
   created_by_user_email: string | null;
   created_by_user_role: string | null;
   source_interaction_id: string | null;
+  source_visit_id: string | null;
   customer_name: string | null;
   title: string;
   description: string | null;

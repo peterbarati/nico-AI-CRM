@@ -72,10 +72,15 @@ curl http://localhost:8787/api/tasks
 curl http://localhost:8787/api/customer-service/queue
 curl http://localhost:8787/api/users?role=sales_rep
 curl http://localhost:8787/api/sales/tasks
+curl http://localhost:8787/api/reports/activity?period=week
 ```
 
 The call logging and Customer Service to Sales handoff workflow is documented in
 [`docs/call-workflow.md`](docs/call-workflow.md).
+
+The Sales visit lifecycle and activity aggregates are documented in
+[`docs/sales-workflow.md`](docs/sales-workflow.md) and
+[`docs/activity-reporting.md`](docs/activity-reporting.md).
 
 ## Quality Checks
 

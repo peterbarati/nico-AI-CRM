@@ -7,6 +7,7 @@ export interface CustomerServiceQueueQuery {
   assignedSalesRepId?: string;
   segmentCode?: string;
   now?: Date;
+  businessDayToUtc?: string;
 }
 
 export interface CustomerServiceCandidate {
@@ -73,4 +74,9 @@ export interface CustomerServiceCandidateSegmentRow {
 
 export interface DailyCompletedCallsRow {
   total: number;
+}
+
+export interface UtcDateRange {
+  fromUtc: string;
+  toUtcExclusive: string;
 }

@@ -4,6 +4,7 @@ import { CustomersPage } from "./features/customers/CustomersPage";
 import { CustomerServicePage } from "./features/customer-service/CustomerServicePage";
 import { ComingSoonPage } from "./pages/ComingSoonPage";
 import { SalesPage } from "./features/sales/SalesPage";
+import { ActivityReportPage } from "./features/reports/activity/ActivityReportPage";
 
 const navItems: NavItem[] = [
   { label: "Dashboard", path: "/" },
@@ -49,6 +50,8 @@ export function App() {
       <CustomerServicePage onNavigate={navigate} />
     ) : path === "/sales" ? (
       <SalesPage onNavigate={navigate} />
+    ) : path === "/reports/activity" || path === "/reports" ? (
+      <ActivityReportPage />
     ) : (
       <ComingSoonPage title={activeItem.label} />
     );

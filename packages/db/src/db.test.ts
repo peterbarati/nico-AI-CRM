@@ -69,6 +69,9 @@ class TestD1Database {
     this.database.exec(
       readFileSync(join(process.cwd(), "migrations/0002_interaction_idempotency.sql"), "utf8")
     );
+    this.database.exec(
+      readFileSync(join(process.cwd(), "migrations/0003_sales_workflow_links.sql"), "utf8")
+    );
   }
 
   exec(sql: string): void {
@@ -214,10 +217,10 @@ describe("customer service read repositories", () => {
   });
 
   it("counts completed customer service calls for today", async () => {
-    const result = await countCompletedCustomerServiceCallsToday(
-      createSeededContext(),
-      new Date("2026-09-11T12:00:00.000Z")
-    );
+    const result = await countCompletedCustomerServiceCallsToday(createSeededContext(), {
+      fromUtc: "2026-09-10T22:00:00.000Z",
+      toUtcExclusive: "2026-09-11T22:00:00.000Z"
+    });
 
     expect(result).toBe(1);
   });

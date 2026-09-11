@@ -6,6 +6,16 @@ This workflow lets a Customer Service user log a structured call, create an opti
 
 Until authentication is implemented, the Worker attributes calls to `DEMO_CUSTOMER_SERVICE_USER_ID`. Local development defaults to the deterministic seed user `usr-cs-001`. The server validates that this user exists, is active, and has the `customer_service` role.
 
+## API Response Contract
+
+Both newly created (`201`) and idempotent (`200`) writes return:
+
+```json
+{ "ok": true, "data": { "interaction": {}, "task": null, "duplicate": false } }
+```
+
+`task` contains the linked follow-up or Sales handoff when one was requested. Errors use `{ "ok": false, "error": { "code": "...", "message": "...", "fields": [] } }`; `fields` is included for request validation failures. Invalid JSON and invalid field values return `400`, missing customers return `404`, and idempotency conflicts return `409`.
+
 ## Flow
 
 1. A user opens **Log call** from `/customer-service` or `/customers/:id`.

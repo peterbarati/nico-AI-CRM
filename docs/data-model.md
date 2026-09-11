@@ -40,8 +40,8 @@ Do not store fields in metadata JSON when they are required for filtering, sorti
 ## Operational CRM Entities
 
 - `customer_interactions`: broad interaction model for calls, email, notes, meetings, customer service events, and other activity.
-- `sales_visits`: structured sales representative visit planning and completion records.
-- `tasks`: assigned work items with due dates, priority, status, type, and optional links to customers, locations, and source interactions. This supports Customer Service to Sales handoff and the reverse.
+- `sales_visits`: structured sales representative visit planning and completion records. A visit may link to the Sales task that initiated it and stores controlled result, next-action, follow-up, and idempotency values.
+- `tasks`: assigned work items with due dates, priority, status, type, and optional links to customers, locations, source interactions, and source visits. These normalized links support Customer Service to Sales handoff and the reverse without parsing notes.
 
 ## Campaigns
 
@@ -88,7 +88,7 @@ Payroll and bonus calculations are intentionally not implemented.
 
 ## Configuration
 
-`system_config` provides a lightweight typed key/value mechanism for future configurable business rules, including reorder grace days, at-risk days, critical inactivity days, and reactivation days.
+`system_config` provides a lightweight typed key/value mechanism for future configurable business rules, including reorder grace days, at-risk days, critical inactivity days, and reactivation days. `system.business_timezone` is the IANA timezone used to convert business dates into UTC query boundaries; timestamps remain stored in UTC.
 
 ## Synchronization Metadata
 

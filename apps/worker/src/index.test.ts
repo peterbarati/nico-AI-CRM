@@ -50,7 +50,7 @@ class TestD1Statement {
 class TestD1Database {
   private readonly database: SqliteDatabase;
 
-  constructor() {
+  constructor(applySalesWorkflowMigration = true) {
     const require = createRequire(import.meta.url);
     const { DatabaseSync } = require("node:sqlite") as { DatabaseSync: DatabaseSyncConstructor };
     this.database = new DatabaseSync(":memory:");
@@ -59,7 +59,17 @@ class TestD1Database {
     this.database.exec(
       readFileSync(join(process.cwd(), "migrations/0002_interaction_idempotency.sql"), "utf8")
     );
-    this.database.exec(readFileSync(join(process.cwd(), "packages/db/seeds/demo.sql"), "utf8"));
+    if (applySalesWorkflowMigration) {
+      this.database.exec(
+        readFileSync(join(process.cwd(), "migrations/0003_sales_workflow_links.sql"), "utf8")
+      );
+    }
+    const seed = readFileSync(join(process.cwd(), "packages/db/seeds/demo.sql"), "utf8");
+    this.database.exec(
+      applySalesWorkflowMigration
+        ? seed
+        : seed.replace(/^UPDATE sales_visits SET source_task_id.*;\r?\n/gm, "")
+    );
   }
 
   prepare(sql: string): TestD1Statement {
@@ -82,12 +92,12 @@ class TestD1Database {
   }
 }
 
-function createTestEnv(): Env {
+function createTestEnv(applySalesWorkflowMigration = true): Env {
   return {
     ASSETS: {
       fetch: () => Promise.resolve(new Response("asset", { status: 200 }))
     },
-    DB: new TestD1Database() as unknown as D1Database
+    DB: new TestD1Database(applySalesWorkflowMigration) as unknown as D1Database
   };
 }
 
@@ -106,6 +116,27 @@ describe("createHealthResponse", () => {
 });
 
 describe("customer service API", () => {
+  it("returns the created handoff even while the next migration is pending", async () => {
+    vi.setSystemTime(new Date("2026-09-11T12:00:00.000Z"));
+    const response = await postCall(createTestEnv(false), "cus-006", {
+      followUpAt: "2026-09-22T10:00:00.000Z",
+      idempotencyKey: "pre-migration-readback-001",
+      nextAction: "SALES_VISIT",
+      priority: "MEDIUM",
+      reason: "REACTIVATION",
+      result: "RESOLVED",
+      salesRepUserId: "usr-sales-003"
+    });
+
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      data: {
+        interaction: { reason: "REACTIVATION", result: "RESOLVED" },
+        task: { sourceVisitId: null, taskType: "handoff" }
+      }
+    });
+  });
   it("returns a deterministic ranked queue response", async () => {
     vi.setSystemTime(new Date("2026-09-11T12:00:00.000Z"));
 
@@ -239,7 +270,14 @@ describe("customer service API", () => {
       reason: "UNCONTROLLED_VALUE",
       result: "RESOLVED"
     });
-    expect(invalidCode.status).toBe(422);
+    expect(invalidCode.status).toBe(400);
+    expect((await invalidCode.clone().json()) as object).toMatchObject({
+      ok: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        fields: expect.arrayContaining([expect.objectContaining({ field: "reason" })])
+      }
+    });
 
     const invalidRep = await postCall(env, "cus-003", {
       followUpAt: "2026-09-16T10:00:00.000Z",
@@ -260,6 +298,23 @@ describe("customer service API", () => {
       result: "RESOLVED"
     });
     expect(missingCustomer.status).toBe(404);
+  });
+
+  it("returns a structured 400 response for malformed JSON", async () => {
+    const response = await worker.fetch(
+      new Request("http://localhost/api/customers/cus-001/interactions", {
+        body: "{not-json",
+        headers: { "content-type": "application/json" },
+        method: "POST"
+      }),
+      createTestEnv()
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: false,
+      error: { code: "BAD_REQUEST", message: "Request body must be valid JSON." }
+    });
   });
 
   it("returns the original workflow for a duplicate submission", async () => {
@@ -292,9 +347,100 @@ describe("customer service API", () => {
   });
 });
 
+describe("Sales visit workflow API", () => {
+  it("schedules, starts, and completes a visit with a linked Customer Service follow-up", async () => {
+    vi.setSystemTime(new Date("2026-09-11T12:00:00.000Z"));
+    const env = createTestEnv();
+    const scheduleBody = {
+      plannedAt: "2026-09-25T09:00:00.000Z",
+      customerLocationId: "loc-008-main",
+      notes: "Discuss coffee assortment.",
+      idempotencyKey: "schedule-visit-test-001"
+    };
+    const scheduled = await postJson(env, "/api/sales/tasks/tsk-007/visits", scheduleBody);
+    const scheduledBody = (await scheduled.json()) as {
+      data: { duplicate: boolean; visit: { id: string; status: string } };
+    };
+    expect(scheduled.status).toBe(201);
+    expect(scheduledBody.data.visit.status).toBe("planned");
+
+    const duplicate = await postJson(env, "/api/sales/tasks/tsk-007/visits", scheduleBody);
+    expect(duplicate.status).toBe(200);
+    expect(((await duplicate.json()) as { data: { duplicate: boolean } }).data.duplicate).toBe(
+      true
+    );
+
+    const visitId = scheduledBody.data.visit.id;
+    const started = await postJson(env, `/api/sales/visits/${visitId}/start`, {});
+    expect(started.status).toBe(200);
+
+    const completed = await postJson(env, `/api/sales/visits/${visitId}/complete`, {
+      result: "INTERESTED",
+      notes: "Send the coffee comparison and call next week.",
+      nextAction: "CUSTOMER_SERVICE_CALL",
+      followUpAt: "2026-09-18T09:00:00.000Z",
+      priority: "HIGH",
+      idempotencyKey: "complete-visit-test-001"
+    });
+    const completedBody = (await completed.json()) as {
+      data: {
+        visit: { status: string; nextAction: string };
+        sourceTask: { status: string };
+        followUpTask: { sourceVisitId: string; assignedUser: { id: string } };
+      };
+    };
+    expect(completed.status).toBe(200);
+    expect(completedBody.data.visit).toMatchObject({
+      status: "completed",
+      nextAction: "CUSTOMER_SERVICE_CALL"
+    });
+    expect(completedBody.data.sourceTask.status).toBe("completed");
+    expect(completedBody.data.followUpTask).toMatchObject({
+      sourceVisitId: visitId,
+      assignedUser: { id: "usr-cs-001" }
+    });
+
+    const history = await worker.fetch(
+      new Request("http://localhost/api/customers/cus-008/visits"),
+      env
+    );
+    expect(((await history.json()) as { data: Array<{ id: string }> }).data[0]?.id).toBe(visitId);
+  });
+
+  it("rejects invalid transitions and reports activity by business period", async () => {
+    vi.setSystemTime(new Date("2026-09-11T12:00:00.000Z"));
+    const env = createTestEnv();
+    const completedVisitStart = await postJson(env, "/api/sales/visits/vis-004/start", {});
+    expect(completedVisitStart.status).toBe(409);
+
+    const report = await worker.fetch(
+      new Request("http://localhost/api/reports/activity?period=today&role=customer_service"),
+      env
+    );
+    const body = (await report.json()) as {
+      data: { period: { timezone: string }; metrics: { callsCompleted: number }; users: unknown[] };
+    };
+    expect(report.status).toBe(200);
+    expect(body.data.period.timezone).toBe("Europe/Bratislava");
+    expect(body.data.metrics.callsCompleted).toBe(1);
+    expect(body.data.users).toHaveLength(3);
+  });
+});
+
 function postCall(env: Env, customerId: string, body: unknown): Promise<Response> {
   return worker.fetch(
     new Request(`http://localhost/api/customers/${customerId}/interactions`, {
+      body: JSON.stringify(body),
+      headers: { "content-type": "application/json" },
+      method: "POST"
+    }),
+    env
+  );
+}
+
+function postJson(env: Env, path: string, body: unknown): Promise<Response> {
+  return worker.fetch(
+    new Request(`http://localhost${path}`, {
       body: JSON.stringify(body),
       headers: { "content-type": "application/json" },
       method: "POST"

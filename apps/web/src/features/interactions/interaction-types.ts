@@ -5,6 +5,7 @@ import type {
   CreateCallRequest,
   TaskPriorityCode
 } from "@nico-ai-crm/shared";
+import type { ApiSuccess } from "@nico-ai-crm/shared";
 import type { CustomerInteraction, TaskItem, UserReference } from "../customers/types";
 
 export type {
@@ -21,9 +22,6 @@ export interface CallWorkflowResult {
   task: TaskItem | null;
 }
 
-export interface CallWorkflowResponse {
-  ok: true;
-  data: CallWorkflowResult;
-}
+export type CallWorkflowResponse = ApiSuccess<CallWorkflowResult>;
 
 export type SalesRepresentative = UserReference;

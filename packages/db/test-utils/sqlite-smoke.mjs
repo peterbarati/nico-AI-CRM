@@ -4,7 +4,11 @@ import { DatabaseSync } from "node:sqlite";
 import assert from "node:assert/strict";
 
 const root = join(import.meta.dirname, "../../..");
-const migrationSql = ["0001_initial.sql", "0002_interaction_idempotency.sql"]
+const migrationSql = [
+  "0001_initial.sql",
+  "0002_interaction_idempotency.sql",
+  "0003_sales_workflow_links.sql"
+]
   .map((file) => readFileSync(join(root, "migrations", file), "utf8"))
   .join("\n");
 const seedSql = readFileSync(join(root, "packages/db/seeds/demo.sql"), "utf8");

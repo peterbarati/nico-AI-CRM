@@ -1,6 +1,18 @@
 import type { DatabaseContext } from "../types";
 import type { SystemConfigEntry, SystemConfigRow } from "./types";
 
+export async function getSystemConfigValue(
+  context: DatabaseContext,
+  key: string
+): Promise<string | null> {
+  const row = await context.db
+    .prepare("SELECT value FROM system_config WHERE key = ?")
+    .bind(key)
+    .first<{ value: string }>();
+
+  return row?.value ?? null;
+}
+
 export async function getSystemConfigByPrefix(
   context: DatabaseContext,
   prefix: string

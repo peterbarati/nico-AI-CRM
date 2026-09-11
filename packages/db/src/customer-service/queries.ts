@@ -5,7 +5,8 @@ import type {
   CustomerServiceCandidateRow,
   CustomerServiceCandidateSegmentRow,
   CustomerServiceQueueQuery,
-  DailyCompletedCallsRow
+  DailyCompletedCallsRow,
+  UtcDateRange
 } from "./types";
 
 const defaultCandidatePoolLimit = 200;
@@ -20,7 +21,7 @@ export async function listCustomerServiceCandidates(
     maxCandidatePoolLimit,
     Math.max(1, Math.trunc(query.limit ?? defaultCandidatePoolLimit))
   );
-  const todayIso = toDateString(now);
+  const businessDayToUtc = query.businessDayToUtc ?? now.toISOString();
   const where: string[] = ["c.active = 1"];
   const params: unknown[] = [];
 
@@ -62,7 +63,7 @@ export async function listCustomerServiceCandidates(
           WHERE t.customer_id = c.id
             AND t.status IN ('open', 'in_progress')
             AND t.due_at IS NOT NULL
-            AND date(t.due_at) <= date(?)
+            AND t.due_at < ?
         ) AS overdue_task_count,
         EXISTS (
           SELECT 1
@@ -97,7 +98,7 @@ export async function listCustomerServiceCandidates(
       LIMIT ?
     `
     )
-    .bind(todayIso, ...params, limit)
+    .bind(businessDayToUtc, ...params, limit)
     .all<CustomerServiceCandidateRow>();
 
   const segmentsByCustomerId = await getCandidateSegmentsByCustomerId(
@@ -112,9 +113,8 @@ export async function listCustomerServiceCandidates(
 
 export async function countCompletedCustomerServiceCallsToday(
   context: DatabaseContext,
-  now = new Date()
+  range: UtcDateRange
 ): Promise<number> {
-  const todayIso = toDateString(now);
   const row = await context.db
     .prepare(
       `
@@ -123,10 +123,11 @@ export async function countCompletedCustomerServiceCallsToday(
       JOIN users u ON u.id = i.user_id
       WHERE i.interaction_type = 'CALL'
         AND u.role = 'customer_service'
-        AND date(i.created_at) = date(?)
+        AND i.created_at >= ?
+        AND i.created_at < ?
     `
     )
-    .bind(todayIso)
+    .bind(range.fromUtc, range.toUtcExclusive)
     .first<DailyCompletedCallsRow>();
 
   return row?.total ?? 0;
@@ -237,8 +238,4 @@ function mapSalesTrend(
   }
 
   return "flat";
-}
-
-function toDateString(date: Date): string {
-  return date.toISOString().slice(0, 10);
 }

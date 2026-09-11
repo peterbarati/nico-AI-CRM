@@ -82,6 +82,79 @@ describe("call workflow frontend", () => {
     });
   });
 
+  it("accepts idempotent 200 responses", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            ok: true,
+            data: { duplicate: true, interaction: { id: "int-existing" }, task: null }
+          }),
+          { status: 200, headers: { "content-type": "application/json" } }
+        )
+      )
+    );
+
+    await expect(
+      createCustomerCall("cus-002", {
+        idempotencyKey: "frontend-idempotent-001",
+        nextAction: "NONE",
+        reason: "GENERAL",
+        result: "RESOLVED"
+      })
+    ).resolves.toMatchObject({ duplicate: true, interaction: { id: "int-existing" } });
+  });
+
+  it.each([
+    [400, "Invalid call values."],
+    [404, "Customer not found."],
+    [409, "Idempotency key conflict."]
+  ])("surfaces structured %i API errors", async (status, message) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ ok: false, error: { code: "TEST_ERROR", message } }), {
+          status,
+          headers: { "content-type": "application/json" }
+        })
+      )
+    );
+
+    await expect(
+      createCustomerCall("cus-002", {
+        idempotencyKey: "frontend-error-test-001",
+        nextAction: "NONE",
+        reason: "GENERAL",
+        result: "RESOLVED"
+      })
+    ).rejects.toThrow(message);
+  });
+
+  it("reports non-JSON and malformed success responses predictably", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("Worker crashed", { status: 500 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ok: true }), {
+          status: 201,
+          headers: { "content-type": "application/json" }
+        })
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const request = {
+      idempotencyKey: "frontend-response-test-001",
+      nextAction: "NONE" as const,
+      reason: "GENERAL" as const,
+      result: "RESOLVED" as const
+    };
+
+    await expect(createCustomerCall("cus-002", request)).rejects.toThrow("non-JSON response (500)");
+    await expect(createCustomerCall("cus-002", request)).rejects.toThrow(
+      "unexpected success response"
+    );
+  });
+
   it("renders the Sales queue with source call context", () => {
     const markup = renderToStaticMarkup(
       <SalesQueueTable
@@ -114,16 +187,17 @@ describe("call workflow frontend", () => {
             sourceResult: "NEEDS_SALES_VISIT",
             status: "open",
             taskType: "handoff",
-            title: "Sales visit handoff"
+            title: "Sales visit handoff",
+            visit: null
           }
         ]}
-        onOpenCustomer={() => undefined}
+        onOpenTask={() => undefined}
       />
     );
 
     expect(markup).toContain("Cedar Office Supply");
     expect(markup).toContain("Buyer needs an assortment review.");
     expect(markup).toContain("Requested by Clara Support");
-    expect(markup).toContain("Open customer");
+    expect(markup).toContain("Open task");
   });
 });

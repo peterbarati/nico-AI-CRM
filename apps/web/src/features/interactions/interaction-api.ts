@@ -27,14 +27,29 @@ export async function fetchSalesRepresentatives(): Promise<SalesRepresentative[]
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
-  const body = (await response.json()) as unknown;
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    throw new Error(`API returned a non-JSON response (${response.status}).`);
+  }
   const apiError = getApiError(body);
 
   if (!response.ok || apiError) {
     throw new Error(apiError ?? `API returned ${response.status}`);
   }
 
+  if (!isSuccessResponse(body)) {
+    throw new Error("API returned an unexpected success response.");
+  }
+
   return body as T;
+}
+
+function isSuccessResponse(body: unknown): body is { ok: true; data: unknown } {
+  return (
+    body !== null && typeof body === "object" && "ok" in body && body.ok === true && "data" in body
+  );
 }
 
 function getApiError(body: unknown): string | null {
@@ -45,8 +60,14 @@ function getApiError(body: unknown): string | null {
   if (!error || typeof error !== "object") {
     return null;
   }
-  if ("details" in error && Array.isArray(error.details)) {
-    const detail = error.details.find(
+  const fields =
+    "fields" in error && Array.isArray(error.fields)
+      ? error.fields
+      : "details" in error && Array.isArray(error.details)
+        ? error.details
+        : [];
+  if (fields.length > 0) {
+    const detail = fields.find(
       (item): item is { message: string } =>
         Boolean(item) && typeof item === "object" && "message" in item
     );

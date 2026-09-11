@@ -131,6 +131,7 @@ export interface TaskItem {
   assignedUser: UserReference;
   createdByUser: UserReference | null;
   sourceInteractionId: string | null;
+  sourceVisitId: string | null;
   customerName: string | null;
   title: string;
   description: string | null;
@@ -155,6 +156,9 @@ export interface SalesVisit {
   result: string | null;
   notes: string | null;
   orderValue: number | null;
+  sourceTaskId: string | null;
+  nextAction: string | null;
+  followUpAt: string | null;
   createdAt: string;
   updatedAt: string;
 }

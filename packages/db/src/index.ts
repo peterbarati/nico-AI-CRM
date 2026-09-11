@@ -25,3 +25,5 @@ export * from "./users/queries";
 export * from "./users/types";
 export * from "./sales/queries";
 export * from "./sales/types";
+export * from "./reports/activity/queries";
+export * from "./reports/activity/types";

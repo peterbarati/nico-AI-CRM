@@ -1,17 +1,17 @@
 import { formatDate, formatLabel } from "../customers/formatting";
-import type { SalesHandoffTask } from "./types";
+import type { SalesTask } from "./types";
 
 interface SalesQueueTableProps {
-  items: SalesHandoffTask[];
-  onOpenCustomer: (customerId: string) => void;
+  items: SalesTask[];
+  onOpenTask: (taskId: string) => void;
 }
 
-export function SalesQueueTable({ items, onOpenCustomer }: SalesQueueTableProps) {
+export function SalesQueueTable({ items, onOpenTask }: SalesQueueTableProps) {
   if (items.length === 0) {
     return (
       <section className="empty-state">
-        <h2>No sales handoffs</h2>
-        <p>There are no open Customer Service handoffs assigned to Sales.</p>
+        <h2>No Sales tasks</h2>
+        <p>No tasks match the current filters.</p>
       </section>
     );
   }
@@ -27,7 +27,7 @@ export function SalesQueueTable({ items, onOpenCustomer }: SalesQueueTableProps)
             <th>Assigned</th>
             <th>Priority</th>
             <th>Due date</th>
-            <th>Source</th>
+            <th>Visit</th>
             <th>Action</th>
           </tr>
         </thead>
@@ -44,7 +44,7 @@ export function SalesQueueTable({ items, onOpenCustomer }: SalesQueueTableProps)
               </td>
               <td>
                 <strong>
-                  {item.sourceReason ? formatLabel(item.sourceReason) : "Customer Service handoff"}
+                  {item.sourceReason ? formatLabel(item.sourceReason) : "Direct Sales task"}
                 </strong>
                 <span>{item.sourceResult ? formatLabel(item.sourceResult) : "No result"}</span>
                 <span>{item.sourceNotes ?? item.context ?? "No additional context"}</span>
@@ -60,12 +60,12 @@ export function SalesQueueTable({ items, onOpenCustomer }: SalesQueueTableProps)
               </td>
               <td>{formatDate(item.dueAt)}</td>
               <td>
-                <strong>Customer Service call</strong>
-                <span>{item.sourceInteractionId}</span>
+                <strong>{item.visit ? formatLabel(item.visit.status) : "Not scheduled"}</strong>
+                <span>{item.visit?.plannedAt ? formatDate(item.visit.plannedAt) : "No visit"}</span>
               </td>
               <td>
-                <button onClick={() => onOpenCustomer(item.customerId)} type="button">
-                  Open customer
+                <button onClick={() => onOpenTask(item.id)} type="button">
+                  Open task
                 </button>
               </td>
             </tr>

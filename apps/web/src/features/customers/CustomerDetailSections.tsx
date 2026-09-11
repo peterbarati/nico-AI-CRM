@@ -112,13 +112,24 @@ export function CustomerDetailSections({
       </DataPanel>
       <DataPanel title="Visits">
         <CompactTable
-          columns={["Planned", "Completed", "Sales rep", "Status", "Result", "Order value"]}
+          columns={[
+            "Planned",
+            "Completed",
+            "Sales rep",
+            "Status",
+            "Result",
+            "Next action",
+            "Notes",
+            "Order value"
+          ]}
           rows={visits.map((visit) => [
             formatDate(visit.plannedAt),
             formatDate(visit.completedAt),
             visit.salesRep.name,
             formatLabel(visit.status),
             visit.result ?? "No result",
+            formatLabel(visit.nextAction),
+            visit.notes ?? "No notes",
             visit.orderValue === null ? "No order" : formatCurrency(visit.orderValue)
           ])}
         />

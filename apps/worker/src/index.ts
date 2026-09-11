@@ -11,6 +11,10 @@ import {
   getCustomerFilterOptions,
   getCustomerOverview,
   getSystemConfigByPrefix,
+  getSystemConfigValue,
+  getActivityReport,
+  getSalesTaskQueueItem,
+  getSalesVisitBySourceTaskId,
   listCustomerServiceCandidates,
   listCustomerInteractions,
   listCustomerOrders,
@@ -19,26 +23,41 @@ import {
   listCustomerVisits,
   listSegments,
   listActiveUsersByRole,
-  listSalesHandoffTasks,
+  listSalesTasks,
   listTasks,
   CallWorkflowError,
+  SalesWorkflowError,
+  completeSalesVisit,
+  scheduleSalesVisit,
+  startSalesVisit,
   type CustomerListQuery,
   type CustomerSortField,
   type PaginationInput,
   type SortDirection
 } from "@nico-ai-crm/db";
 import {
+  getBusinessDateRange,
+  isValidBusinessTimezone,
   validateCreateCallRequest,
+  validateCompleteSalesVisitRequest,
+  validateScheduleSalesVisitRequest,
+  type ActivityPeriodPreset,
+  type ApiErrorResponse,
+  type ApiSuccess,
   type HealthResponse,
   type ValidationIssue
 } from "@nico-ai-crm/shared";
+import { getCustomerServiceActorId, getSalesActorId } from "./actor";
 
 export interface Env {
   DB: D1Database;
   ASSETS: Fetcher;
   APP_ENV?: string;
   DEMO_CUSTOMER_SERVICE_USER_ID?: string;
+  DEMO_SALES_USER_ID?: string;
 }
+
+const defaultBusinessTimezone = "Europe/Bratislava";
 
 const jsonHeaders = {
   "content-type": "application/json; charset=utf-8"
@@ -55,43 +74,39 @@ function jsonResponse<T>(body: T, init?: ResponseInit): Response {
 }
 
 function ok<T>(data: T, init?: ResponseInit): Response {
-  return jsonResponse({ ok: true, data }, init);
+  return jsonResponse<ApiSuccess<T>>({ ok: true, data }, init);
+}
+
+function errorResponse(
+  status: number,
+  code: string,
+  message: string,
+  fields?: ValidationIssue[]
+): Response {
+  return jsonResponse<ApiErrorResponse>(
+    { ok: false, error: { code, message, ...(fields?.length ? { fields } : {}) } },
+    { status }
+  );
 }
 
 function notFound(message = "Not found"): Response {
-  return jsonResponse({ ok: false, error: { code: "NOT_FOUND", message } }, { status: 404 });
+  return errorResponse(404, "NOT_FOUND", message);
 }
 
 function badRequest(message: string): Response {
-  return jsonResponse({ ok: false, error: { code: "BAD_REQUEST", message } }, { status: 400 });
+  return errorResponse(400, "BAD_REQUEST", message);
 }
 
-function validationError(issues: ValidationIssue[]): Response {
-  return jsonResponse(
-    {
-      ok: false,
-      error: {
-        code: "VALIDATION_ERROR",
-        message: "Request validation failed.",
-        details: issues
-      }
-    },
-    { status: 422 }
-  );
+function validationError(issues: ValidationIssue[], status = 422): Response {
+  return errorResponse(status, "VALIDATION_ERROR", "Request validation failed.", issues);
 }
 
 function methodNotAllowed(): Response {
-  return jsonResponse(
-    { ok: false, error: { code: "METHOD_NOT_ALLOWED", message: "Method not allowed." } },
-    { status: 405 }
-  );
+  return errorResponse(405, "METHOD_NOT_ALLOWED", "Method not allowed.");
 }
 
 function internalError(): Response {
-  return jsonResponse(
-    { ok: false, error: { code: "INTERNAL_ERROR", message: "Unexpected API error." } },
-    { status: 500 }
-  );
+  return errorResponse(500, "INTERNAL_ERROR", "Unexpected API error.");
 }
 
 function parsePagination(url: URL): PaginationInput {
@@ -194,12 +209,12 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
     const now = new Date();
     const validation = validateCreateCallRequest(body, now);
     if (!validation.success) {
-      return validationError(validation.issues);
+      return validationError(validation.issues, 400);
     }
 
     try {
       const result = await createCallWorkflow(context, {
-        actorUserId: env.DEMO_CUSTOMER_SERVICE_USER_ID ?? "usr-cs-001",
+        actorUserId: getCustomerServiceActorId(env),
         createdAt: now.toISOString(),
         customerId: decodeURIComponent(interactionWriteRoute[1]),
         interactionId: crypto.randomUUID(),
@@ -215,12 +230,67 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
             : error.code === "IDEMPOTENCY_CONFLICT"
               ? 409
               : 422;
-        return jsonResponse(
-          { ok: false, error: { code: error.code, message: error.message } },
-          { status }
-        );
+        return errorResponse(status, error.code, error.message);
       }
       throw error;
+    }
+  }
+
+  const scheduleVisitRoute = url.pathname.match(/^\/api\/sales\/tasks\/([^/]+)\/visits$/);
+  if (scheduleVisitRoute && request.method === "POST") {
+    const body = await readJsonBody(request);
+    if (body instanceof Response) return body;
+    const now = new Date();
+    const validation = validateScheduleSalesVisitRequest(body, now);
+    if (!validation.success) return validationError(validation.issues);
+    try {
+      const result = await scheduleSalesVisit(context, {
+        actorUserId: getSalesActorId(env),
+        createdAt: now.toISOString(),
+        request: validation.data,
+        sourceTaskId: decodeURIComponent(scheduleVisitRoute[1]),
+        visitId: crypto.randomUUID()
+      });
+      return ok(result, { status: result.duplicate ? 200 : 201 });
+    } catch (error) {
+      return handleSalesWorkflowError(error);
+    }
+  }
+
+  const startVisitRoute = url.pathname.match(/^\/api\/sales\/visits\/([^/]+)\/start$/);
+  if (startVisitRoute && request.method === "POST") {
+    try {
+      const result = await startSalesVisit(
+        context,
+        decodeURIComponent(startVisitRoute[1]),
+        getSalesActorId(env),
+        new Date().toISOString()
+      );
+      return ok(result);
+    } catch (error) {
+      return handleSalesWorkflowError(error);
+    }
+  }
+
+  const completeVisitRoute = url.pathname.match(/^\/api\/sales\/visits\/([^/]+)\/complete$/);
+  if (completeVisitRoute && request.method === "POST") {
+    const body = await readJsonBody(request);
+    if (body instanceof Response) return body;
+    const now = new Date();
+    const validation = validateCompleteSalesVisitRequest(body, now);
+    if (!validation.success) return validationError(validation.issues);
+    try {
+      const result = await completeSalesVisit(context, {
+        actorUserId: getSalesActorId(env),
+        completedAt: now.toISOString(),
+        customerServiceUserId: getCustomerServiceActorId(env),
+        followUpTaskId: crypto.randomUUID(),
+        request: validation.data,
+        visitId: decodeURIComponent(completeVisitRoute[1])
+      });
+      return ok(result);
+    } catch (error) {
+      return handleSalesWorkflowError(error);
     }
   }
 
@@ -251,29 +321,77 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
 
   if (url.pathname === "/api/users") {
     const role = url.searchParams.get("role");
-    if (role !== "sales_rep") {
-      return badRequest("Only role=sales_rep is supported by this endpoint.");
+    if (role !== "sales_rep" && role !== "customer_service") {
+      return badRequest("Supported roles are sales_rep and customer_service.");
     }
     return ok(await listActiveUsersByRole(context, role));
   }
 
   if (url.pathname === "/api/sales/tasks") {
-    return ok(
-      await listSalesHandoffTasks(context, url.searchParams.get("assignedUserId") ?? undefined)
-    );
+    const now = new Date();
+    const businessRange = await getCurrentBusinessDay(context, now);
+    const result = await listSalesTasks(context, {
+      ...parsePagination(url),
+      assignedUserId: url.searchParams.get("assignedUserId") ?? undefined,
+      status: url.searchParams.get("status") ?? undefined,
+      priority: url.searchParams.get("priority") ?? undefined,
+      due: parseSalesDueFilter(url.searchParams.get("due")),
+      nowUtc: now.toISOString(),
+      businessDayFromUtc: businessRange.fromUtc,
+      businessDayToUtc: businessRange.toUtcExclusive
+    });
+    return jsonResponse({ ok: true, data: result.items, pagination: result.pagination });
+  }
+
+  const salesTaskRoute = url.pathname.match(/^\/api\/sales\/tasks\/([^/]+)$/);
+  if (salesTaskRoute) {
+    const task = await getSalesTaskQueueItem(context, decodeURIComponent(salesTaskRoute[1]));
+    if (!task) return notFound("Sales task not found.");
+    const [customer, visit] = await Promise.all([
+      getCustomerOverview(context, task.customerId),
+      getSalesVisitBySourceTaskId(context, task.id)
+    ]);
+    return ok({ task, customer, visit });
+  }
+
+  if (url.pathname === "/api/reports/activity") {
+    const now = new Date();
+    const timezone = await getBusinessTimezone(context);
+    const preset = parseActivityPreset(url.searchParams.get("period"));
+    try {
+      const range = getBusinessDateRange(
+        preset,
+        now,
+        timezone,
+        url.searchParams.get("from") ?? undefined,
+        url.searchParams.get("to") ?? undefined
+      );
+      return ok(
+        await getActivityReport(context, {
+          range,
+          nowUtc: now.toISOString(),
+          role: url.searchParams.get("role") ?? undefined,
+          userId: url.searchParams.get("userId") ?? undefined
+        })
+      );
+    } catch (error) {
+      return badRequest(error instanceof Error ? error.message : "Invalid report period.");
+    }
   }
 
   if (url.pathname === "/api/customer-service/queue") {
     const now = new Date();
+    const businessRange = await getCurrentBusinessDay(context, now);
     const query = parseCustomerServiceQueueQuery(url);
     const [configRows, candidates, callsCompletedToday] = await Promise.all([
       getSystemConfigByPrefix(context, "customer_service."),
       listCustomerServiceCandidates(context, {
         ...query,
         limit: query.limit ? Math.max(query.limit * 5, 100) : undefined,
-        now
+        now,
+        businessDayToUtc: businessRange.toUtcExclusive
       }),
-      countCompletedCustomerServiceCallsToday(context, now)
+      countCompletedCustomerServiceCallsToday(context, businessRange)
     ]);
     const config = applyCustomerServiceConfigRows(defaultCustomerServiceRulesConfig, configRows);
     const rankedItems = candidates
@@ -379,6 +497,45 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
   }
 
   return notFound();
+}
+
+async function readJsonBody(request: Request): Promise<unknown | Response> {
+  try {
+    return await request.json();
+  } catch {
+    return badRequest("Request body must be valid JSON.");
+  }
+}
+
+function handleSalesWorkflowError(error: unknown): Response {
+  if (!(error instanceof SalesWorkflowError)) throw error;
+  const status =
+    error.code === "TASK_NOT_FOUND" || error.code === "VISIT_NOT_FOUND"
+      ? 404
+      : error.code === "IDEMPOTENCY_CONFLICT" || error.code === "VISIT_STATE_INVALID"
+        ? 409
+        : 422;
+  return jsonResponse(
+    { ok: false, error: { code: error.code, message: error.message } },
+    { status }
+  );
+}
+
+async function getBusinessTimezone(context: ReturnType<typeof createDatabaseContext>) {
+  const configured = await getSystemConfigValue(context, "system.business_timezone");
+  return configured && isValidBusinessTimezone(configured) ? configured : defaultBusinessTimezone;
+}
+
+async function getCurrentBusinessDay(context: ReturnType<typeof createDatabaseContext>, now: Date) {
+  return getBusinessDateRange("today", now, await getBusinessTimezone(context));
+}
+
+function parseActivityPreset(value: string | null): ActivityPeriodPreset {
+  return value === "week" || value === "month" || value === "custom" ? value : "today";
+}
+
+function parseSalesDueFilter(value: string | null) {
+  return value === "overdue" || value === "today" || value === "upcoming" ? value : undefined;
 }
 
 function applyCustomerServiceConfigRows(
