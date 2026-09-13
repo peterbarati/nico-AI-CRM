@@ -9,6 +9,7 @@ import type {
   SalesVisit,
   TaskItem
 } from "./types";
+import { displayLabel, priorityLabel, t } from "../../i18n";
 
 interface CustomerDetailSectionsProps {
   interactions: CustomerInteraction[];
@@ -30,38 +31,43 @@ export function CustomerDetailSections({
   return (
     <div className="detail-layout">
       <section className="detail-panel">
-        <h3>CRM status</h3>
+        <h3>{t("CRM status")}</h3>
         <div className="status-stack">
           <div>
-            <span>Active segments</span>
+            <span>{t("Active segments")}</span>
             <SegmentBadges segments={overview.segments} />
           </div>
           <div>
-            <span>Open tasks</span>
+            <span>{t("Open tasks")}</span>
             <strong>{overview.openTasks.length}</strong>
           </div>
           <div>
-            <span>Last interaction</span>
-            <strong>{overview.customer.lastInteraction?.result ?? "No interaction"}</strong>
+            <span>{t("Last interaction")}</span>
+            <strong>
+              {overview.customer.lastInteraction?.result
+                ? displayLabel(overview.customer.lastInteraction.result)
+                : t("No interaction")}
+            </strong>
             <small>{formatDate(overview.customer.lastInteraction?.createdAt)}</small>
           </div>
           <div>
-            <span>Last order</span>
+            <span>{t("Last order")}</span>
             <strong>{formatDate(overview.customer.lastOrderDate)}</strong>
           </div>
         </div>
       </section>
       <section className="detail-panel recommended-panel">
-        <h3>Recommended action</h3>
+        <h3>{t("Recommended action")}</h3>
         <p>
-          Review open tasks, latest interaction result, and active segment reasons before the next
-          customer contact.
+          {t(
+            "Review open tasks, latest interaction result, and active segment reasons before the next customer contact."
+          )}
         </p>
-        {overview.segments[0]?.reason ? <strong>{overview.segments[0].reason}</strong> : null}
+        {overview.segments[0] ? <strong>{displayLabel(overview.segments[0].code)}</strong> : null}
       </section>
-      <DataPanel title="Orders">
+      <DataPanel title={t("Orders")}>
         <CompactTable
-          columns={["Date", "Order", "Net", "Gross", "Status", "Source"]}
+          columns={[t("Date"), t("Order"), t("Net"), t("Gross"), t("Status"), t("Source")]}
           rows={orders.map((order) => [
             formatDate(order.orderDate),
             order.orderNumber,
@@ -72,78 +78,78 @@ export function CustomerDetailSections({
           ])}
         />
       </DataPanel>
-      <DataPanel title="Interactions">
+      <DataPanel title={t("Interactions")}>
         <CompactTable
           columns={[
-            "Date",
-            "User",
-            "Type",
-            "Reason",
-            "Result",
-            "Notes",
-            "Next action",
-            "Follow-up"
+            t("Date"),
+            t("User"),
+            t("Type"),
+            t("Reason"),
+            t("Result"),
+            t("Notes"),
+            t("Next action"),
+            t("Follow-up")
           ]}
           rows={interactions.map((interaction) => [
             formatDate(interaction.createdAt),
             interaction.user.name,
-            interaction.interactionType,
-            interaction.reason ?? "No reason",
-            interaction.result ?? "No result",
-            interaction.notes ?? "No notes",
-            interaction.nextAction ? formatLabel(interaction.nextAction) : "None",
+            displayLabel(interaction.interactionType),
+            interaction.reason ? displayLabel(interaction.reason) : t("No reason"),
+            interaction.result ? displayLabel(interaction.result) : t("No result"),
+            interaction.notes ?? t("No notes"),
+            interaction.nextAction ? displayLabel(interaction.nextAction) : t("None"),
             formatDate(interaction.followUpAt)
           ])}
         />
       </DataPanel>
-      <DataPanel title="Tasks">
+      <DataPanel title={t("Tasks")}>
         <CompactTable
-          columns={["Title", "Assigned user", "Priority", "Status", "Due date"]}
+          columns={[t("Title"), t("Assigned user"), t("Priority"), t("Status"), t("Due date")]}
           rows={tasks.map((task) => [
             task.title,
             task.assignedUser.name,
-            formatLabel(task.priority),
+            priorityLabel(task.priority),
             formatLabel(task.status),
             isOverdueOpenTask(task.dueAt, task.status)
-              ? `Overdue: ${formatDate(task.dueAt)}`
+              ? `${t("Overdue")}: ${formatDate(task.dueAt)}`
               : formatDate(task.dueAt)
           ])}
         />
       </DataPanel>
-      <DataPanel title="Visits">
+      <DataPanel title={t("Visits")}>
         <CompactTable
           columns={[
-            "Planned",
-            "Completed",
-            "Sales rep",
-            "Status",
-            "Result",
-            "Next action",
-            "Notes",
-            "Order value"
+            t("Planned"),
+            t("Completed"),
+            t("Sales rep column"),
+            t("Status"),
+            t("Result"),
+            t("Next action"),
+            t("Notes"),
+            t("Order value")
           ]}
           rows={visits.map((visit) => [
             formatDate(visit.plannedAt),
             formatDate(visit.completedAt),
             visit.salesRep.name,
             formatLabel(visit.status),
-            visit.result ?? "No result",
+            visit.result ? displayLabel(visit.result) : t("No result"),
             formatLabel(visit.nextAction),
-            visit.notes ?? "No notes",
-            visit.orderValue === null ? "No order" : formatCurrency(visit.orderValue)
+            visit.notes ?? t("No notes"),
+            visit.orderValue === null ? t("No order") : formatCurrency(visit.orderValue)
           ])}
         />
       </DataPanel>
-      <DataPanel title="Locations">
+      <DataPanel title={t("Locations")}>
         <CompactTable
-          columns={["Name", "Type", "Address", "City", "Phone", "Status"]}
+          columns={[t("Name"), t("Type"), t("Address"), t("City"), t("Phone"), t("Status")]}
           rows={locations.map((location) => [
             location.name,
             formatLabel(location.locationType),
             location.address,
             location.city,
-            location.phone ?? "No phone",
-            location.active ? "Active" : "Inactive"
+            location.phone ?? t("No phone"),
+            location.active ? t("Active") : t("Inactive")
           ])}
         />
       </DataPanel>
@@ -162,7 +168,7 @@ function DataPanel({ children, title }: { children: ReactNode; title: string }) 
 
 function CompactTable({ columns, rows }: { columns: string[]; rows: string[][] }) {
   if (rows.length === 0) {
-    return <p className="muted">No records found.</p>;
+    return <p className="muted">{t("No records found.")}</p>;
   }
 
   return (

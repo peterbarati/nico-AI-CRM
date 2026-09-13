@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { completeVisit, fetchSalesTaskDetail, scheduleVisit, startVisit } from "./api";
-import { formatCurrency, formatDate, formatLabel } from "../customers/formatting";
+import { formatCurrency, formatDate } from "../customers/formatting";
 import type { SalesTaskDetail } from "./types";
+import { apiErrorMessage, displayLabel, priorityLabel, t } from "../../i18n";
 
 interface Props {
   taskId: string;
@@ -19,7 +20,7 @@ export function SalesTaskPanel({ taskId, onClose, onChanged, onOpenCustomer }: P
     fetchSalesTaskDetail(taskId)
       .then(setDetail)
       .catch((error: unknown) =>
-        setError(error instanceof Error ? error.message : "Task unavailable.")
+        setError(apiErrorMessage(error, "Úloha momentálne nie je dostupná."))
       );
   }, [taskId]);
 
@@ -31,7 +32,7 @@ export function SalesTaskPanel({ taskId, onClose, onChanged, onOpenCustomer }: P
       setDetail(await fetchSalesTaskDetail(taskId));
       onChanged();
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Action failed.");
+      setError(apiErrorMessage(error, "Akciu sa nepodarilo vykonať."));
     } finally {
       setSaving(false);
     }
@@ -58,7 +59,7 @@ export function SalesTaskPanel({ taskId, onClose, onChanged, onOpenCustomer }: P
     const nextAction = String(data.get("nextAction"));
     const followUpAt = String(data.get("followUpAt") || "");
     if (nextAction !== "NONE" && !followUpAt) {
-      setError("A follow-up date is required for the selected next action.");
+      setError("Pre vybraný ďalší krok je potrebný termín follow-up.");
       return;
     }
     void submit(() =>
@@ -80,15 +81,15 @@ export function SalesTaskPanel({ taskId, onClose, onChanged, onOpenCustomer }: P
         className="detail-drawer sales-task-panel"
         role="dialog"
         aria-modal="true"
-        aria-label="Sales task detail"
+        aria-label={t("Sales task detail")}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="detail-drawer__header">
           <div>
-            <p className="eyebrow">Sales task</p>
-            <h2>{detail?.task.title ?? "Loading..."}</h2>
+            <p className="eyebrow">{t("Sales task")}</p>
+            <h2>{detail?.task.title ?? t("Loading...")}</h2>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close">
+          <button type="button" onClick={onClose} aria-label={t("Close")}>
             ×
           </button>
         </div>
@@ -98,39 +99,44 @@ export function SalesTaskPanel({ taskId, onClose, onChanged, onOpenCustomer }: P
             <section className="detail-section">
               <h3>{detail.customer.customer.companyName}</h3>
               <p>
-                {detail.customer.customer.contactName ?? "No contact"} ·{" "}
-                {detail.customer.customer.phone ?? "No phone"} ·{" "}
-                {detail.customer.customer.email ?? "No email"}
+                {detail.customer.customer.contactName ?? t("No contact")} ·{" "}
+                {detail.customer.customer.phone ?? t("No phone")} ·{" "}
+                {detail.customer.customer.email ?? t("No email")}
               </p>
               <button type="button" onClick={() => onOpenCustomer(detail.task.customerId)}>
-                Open customer record
+                {t("Open customer record")}
               </button>
               <p>
-                {detail.customer.locations[0]?.address ?? "No address"},{" "}
+                {detail.customer.locations[0]?.address ?? t("No address")},{" "}
                 {detail.customer.customer.city}
               </p>
               <p>
-                90-day turnover:{" "}
-                <strong>{formatCurrency(detail.customer.metrics?.turnover90d ?? 0)}</strong> · Last
-                order: {formatDate(detail.customer.metrics?.lastOrderDate)}
+                {t("90-day turnover")}:{" "}
+                <strong>{formatCurrency(detail.customer.metrics?.turnover90d ?? 0)}</strong> ·{" "}
+                {t("Last order")}: {formatDate(detail.customer.metrics?.lastOrderDate)}
               </p>
             </section>
             <section className="detail-section">
-              <h3>Task context</h3>
-              <p>{detail.task.context ?? "No additional context."}</p>
-              <p>{detail.task.sourceNotes ?? detail.task.sourceReason ?? "Direct Sales task"}</p>
+              <h3>{t("Task context")}</h3>
+              <p>{detail.task.context ?? t("No additional context.")}</p>
+              <p>
+                {detail.task.sourceNotes ??
+                  (detail.task.sourceReason
+                    ? displayLabel(detail.task.sourceReason)
+                    : t("Direct Sales task"))}
+              </p>
             </section>
             {!detail.visit ? (
               <form className="workflow-form" onSubmit={schedule}>
-                <h3>Schedule visit</h3>
+                <h3>{t("Schedule visit")}</h3>
                 <label>
-                  Date and time
+                  {t("Date and time")}
                   <input name="plannedAt" type="datetime-local" required />
                 </label>
                 <label>
-                  Location
+                  {t("Location")}
                   <select name="customerLocationId">
-                    <option value="">Primary location</option>
+                    <option value="">{t("Primary location")}</option>
                     {detail.customer.locations.map((location) => (
                       <option key={location.id} value={location.id}>
                         {location.name} — {location.city}
@@ -139,34 +145,38 @@ export function SalesTaskPanel({ taskId, onClose, onChanged, onOpenCustomer }: P
                   </select>
                 </label>
                 <label>
-                  Notes
+                  {t("Notes")}
                   <textarea name="notes" rows={3} />
                 </label>
                 <button disabled={saving} type="submit">
-                  Schedule visit
+                  {t("Schedule visit")}
                 </button>
               </form>
             ) : null}
             {detail.visit ? (
               <section className="detail-section">
-                <h3>Visit · {formatLabel(detail.visit.status)}</h3>
-                <p>Planned {formatDate(detail.visit.plannedAt)}</p>
+                <h3>
+                  {t("Visit")} · {displayLabel(detail.visit.status)}
+                </h3>
+                <p>
+                  {t("Planned")} {formatDate(detail.visit.plannedAt)}
+                </p>
                 {detail.visit.status === "planned" ? (
                   <button
                     disabled={saving}
                     type="button"
                     onClick={() => void submit(() => startVisit(detail.visit!.id))}
                   >
-                    Start visit
+                    {t("Start visit")}
                   </button>
                 ) : null}
               </section>
             ) : null}
             {detail.visit && ["planned", "in_progress"].includes(detail.visit.status) ? (
               <form className="workflow-form" onSubmit={complete}>
-                <h3>Complete visit</h3>
+                <h3>{t("Complete visit")}</h3>
                 <label>
-                  Result
+                  {t("Result")}
                   <select name="result" required>
                     {[
                       "ORDER",
@@ -179,20 +189,22 @@ export function SalesTaskPanel({ taskId, onClose, onChanged, onOpenCustomer }: P
                       "CUSTOMER_CLOSED",
                       "OTHER"
                     ].map((value) => (
-                      <option key={value}>{value}</option>
+                      <option key={value} value={value}>
+                        {displayLabel(value)}
+                      </option>
                     ))}
                   </select>
                 </label>
                 <label>
-                  Notes
+                  {t("Notes")}
                   <textarea name="notes" rows={3} />
                 </label>
                 <label>
-                  Order value
+                  {t("Order value")}
                   <input min="0" name="orderValue" step="0.01" type="number" />
                 </label>
                 <label>
-                  Next action
+                  {t("Next action")}
                   <select name="nextAction" required>
                     {[
                       "NONE",
@@ -203,25 +215,28 @@ export function SalesTaskPanel({ taskId, onClose, onChanged, onOpenCustomer }: P
                       "B2B_REGISTRATION",
                       "REORDER_FOLLOW_UP"
                     ].map((value) => (
-                      <option key={value}>{value}</option>
+                      <option key={value} value={value}>
+                        {displayLabel(value)}
+                      </option>
                     ))}
                   </select>
                 </label>
                 <label>
-                  Follow-up date
+                  {t("Follow-up date")}
                   <input name="followUpAt" type="datetime-local" />
                 </label>
                 <label>
-                  Priority
+                  {t("Priority")}
                   <select name="priority">
-                    <option>MEDIUM</option>
-                    <option>HIGH</option>
-                    <option>CRITICAL</option>
-                    <option>LOW</option>
+                    {(["MEDIUM", "HIGH", "CRITICAL", "LOW"] as const).map((value) => (
+                      <option key={value} value={value}>
+                        {priorityLabel(value)}
+                      </option>
+                    ))}
                   </select>
                 </label>
                 <button disabled={saving} type="submit">
-                  Complete visit
+                  {t("Complete visit")}
                 </button>
               </form>
             ) : null}

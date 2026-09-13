@@ -11,21 +11,22 @@ import { useAuth } from "./features/auth/AuthContext";
 import { ForbiddenState } from "./features/auth/ForbiddenState";
 import { UsersPage } from "./features/users/UsersPage";
 import type { Permission } from "@nico-ai-crm/auth";
+import { t } from "./i18n";
 
 export const navItems: Array<NavItem & { permission: Permission }> = [
-  { label: "Dashboard", path: "/", permission: "DASHBOARD_READ" },
-  { label: "Customers", path: "/customers", permission: "CUSTOMERS_READ" },
-  { label: "Tasks", path: "/tasks", permission: "TASKS_READ" },
+  { label: t("Dashboard"), path: "/", permission: "DASHBOARD_READ" },
+  { label: t("Customers"), path: "/customers", permission: "CUSTOMERS_READ" },
+  { label: t("Tasks"), path: "/tasks", permission: "TASKS_READ" },
   {
-    label: "Customer Service",
+    label: t("Customer Service"),
     path: "/customer-service",
     permission: "CUSTOMER_SERVICE_QUEUE_READ"
   },
-  { label: "Sales", path: "/sales", permission: "SALES_QUEUE_READ" },
-  { label: "Campaigns", path: "/campaigns", permission: "CUSTOMERS_READ" },
-  { label: "Reports", path: "/reports", permission: "REPORTS_READ" },
-  { label: "Settings", path: "/settings", permission: "SETTINGS_READ" },
-  { label: "Users", path: "/users", permission: "USER_ADMIN" }
+  { label: t("Sales"), path: "/sales", permission: "SALES_QUEUE_READ" },
+  { label: t("Campaigns"), path: "/campaigns", permission: "CUSTOMERS_READ" },
+  { label: t("Reports"), path: "/reports", permission: "REPORTS_READ" },
+  { label: t("Settings"), path: "/settings", permission: "SETTINGS_READ" },
+  { label: t("Users"), path: "/users", permission: "USER_ADMIN" }
 ];
 
 export function App() {

@@ -18,6 +18,7 @@ import type {
   SalesVisit,
   TaskItem
 } from "./types";
+import { apiErrorMessage, t } from "../../i18n";
 
 interface CustomerDetailPageProps {
   customerId: string;
@@ -58,7 +59,7 @@ export function CustomerDetailPage({ customerId, onBack }: CustomerDetailPagePro
         visits: visits.data
       });
     } catch (unknownError) {
-      setError(unknownError instanceof Error ? unknownError.message : "Customer unavailable");
+      setError(apiErrorMessage(unknownError, "Zákazník momentálne nie je dostupný."));
       setState(null);
     } finally {
       setLoading(false);
@@ -70,16 +71,16 @@ export function CustomerDetailPage({ customerId, onBack }: CustomerDetailPagePro
   }, [loadCustomer]);
 
   if (loading) {
-    return <div className="loading-state">Loading customer detail...</div>;
+    return <div className="loading-state">{t("Loading customer detail...")}</div>;
   }
 
   if (error) {
     return (
       <section className="error-state">
         <button className="link-button" onClick={onBack} type="button">
-          Back to customers
+          {t("Back to customers")}
         </button>
-        <h2>Customer not found</h2>
+        <h2>{t("Customer not found")}</h2>
         <p>{error}</p>
       </section>
     );
@@ -89,9 +90,9 @@ export function CustomerDetailPage({ customerId, onBack }: CustomerDetailPagePro
     return (
       <section className="empty-state">
         <button className="link-button" onClick={onBack} type="button">
-          Back to customers
+          {t("Back to customers")}
         </button>
-        <h2>Customer not found</h2>
+        <h2>{t("Customer not found")}</h2>
       </section>
     );
   }
@@ -128,7 +129,7 @@ export function CustomerDetailPage({ customerId, onBack }: CustomerDetailPagePro
           onCancel={() => setShowLogCall(false)}
           onSuccess={(result) => {
             setShowLogCall(false);
-            setNotice(result.task ? "Call and follow-up task saved." : "Call saved.");
+            setNotice(result.task ? t("Call and follow-up task saved.") : t("Call saved."));
             void loadCustomer();
           }}
         />

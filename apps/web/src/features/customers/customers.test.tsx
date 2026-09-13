@@ -117,15 +117,17 @@ describe("customer frontend rendering", () => {
 
     expect(markup).toContain("Jana Buyer");
     expect(markup).toContain("Eva Sales");
-    expect(markup).toContain("REORDER_DUE");
-    expect(markup).toContain("Up");
+    expect(markup).toContain("Čas na doobjednanie");
+    expect(markup).toContain("Rast");
   });
 
   it("renders segment badges and empty state", () => {
     expect(renderToStaticMarkup(<SegmentBadges segments={customer.segments} />)).toContain(
-      "REORDER_DUE"
+      "Čas na doobjednanie"
     );
-    expect(renderToStaticMarkup(<SegmentBadges segments={[]} />)).toContain("No active segments");
+    expect(renderToStaticMarkup(<SegmentBadges segments={[]} />)).toContain(
+      "Žiadne aktívne segmenty"
+    );
   });
 
   it("renders customer detail header and commercial metrics", () => {
@@ -141,9 +143,9 @@ describe("customer frontend rendering", () => {
     );
 
     expect(header).toContain("Blue Pine");
-    expect(header).toContain("Log call");
-    expect(metrics).toContain("Turnover 90d");
-    expect(metrics).toContain("Sales trend");
-    expect(metrics).toContain("Lifetime turnover");
+    expect(header).toContain("Zapísať hovor");
+    expect(metrics).toContain("Obrat za 90 dní");
+    expect(metrics).toContain("Vývoj obratu");
+    expect(metrics).toContain("Celkový obrat");
   });
 });

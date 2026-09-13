@@ -1,5 +1,5 @@
-import { formatLabel } from "./formatting";
 import type { CustomerFilterOptions, CustomerListFilters } from "./types";
+import { displayLabel, t } from "../../i18n";
 
 interface CustomerFiltersProps {
   filters: CustomerListFilters;
@@ -17,36 +17,36 @@ export function CustomerFilters({ filters, options, onChange }: CustomerFiltersP
   }
 
   return (
-    <section className="filter-panel" aria-label="Customer filters">
+    <section className="filter-panel" aria-label={t("Customer filters")}>
       <label>
-        <span>Search</span>
+        <span>{t("Search")}</span>
         <input
           onChange={(event) => update({ search: event.target.value })}
-          placeholder="Company, contact, email, city"
+          placeholder={t("Company, contact, email, city")}
           type="search"
           value={filters.search}
         />
       </label>
       <label>
-        <span>Status</span>
+        <span>{t("Status")}</span>
         <select
           onChange={(event) =>
             update({ active: event.target.value as CustomerListFilters["active"] })
           }
           value={filters.active}
         >
-          <option value="all">All</option>
-          <option value="true">Active</option>
-          <option value="false">Inactive</option>
+          <option value="all">{t("All")}</option>
+          <option value="true">{t("Active")}</option>
+          <option value="false">{t("Inactive")}</option>
         </select>
       </label>
       <label>
-        <span>Sales rep</span>
+        <span>{t("Sales rep")}</span>
         <select
           onChange={(event) => update({ assignedSalesRepId: event.target.value })}
           value={filters.assignedSalesRepId}
         >
-          <option value="">All reps</option>
+          <option value="">{t("All reps")}</option>
           {options?.salesReps.map((rep) => (
             <option key={rep.id} value={rep.id}>
               {rep.name}
@@ -60,47 +60,47 @@ export function CustomerFilters({ filters, options, onChange }: CustomerFiltersP
           onChange={(event) => update({ b2bStatus: event.target.value })}
           value={filters.b2bStatus}
         >
-          <option value="">All B2B states</option>
+          <option value="">{t("All B2B states")}</option>
           {options?.b2bStatuses.map((status) => (
             <option key={status} value={status}>
-              {formatLabel(status)}
+              {displayLabel(status)}
             </option>
           ))}
         </select>
       </label>
       <label>
-        <span>Segment</span>
+        <span>{t("Segment")}</span>
         <select
           onChange={(event) => update({ segmentCode: event.target.value })}
           value={filters.segmentCode}
         >
-          <option value="">All segments</option>
+          <option value="">{t("All segments")}</option>
           {options?.segments.map((segment) => (
             <option key={segment.id} value={segment.code}>
-              {segment.code}
+              {displayLabel(segment.code)}
             </option>
           ))}
         </select>
       </label>
       <label>
-        <span>Sort</span>
+        <span>{t("Sort")}</span>
         <select onChange={(event) => update({ sort: event.target.value })} value={filters.sort}>
-          <option value="company_name">Company name</option>
-          <option value="last_order_date">Last order</option>
-          <option value="turnover_90d">Turnover 90d</option>
-          <option value="days_since_last_order">Days since last order</option>
+          <option value="company_name">{t("Company name")}</option>
+          <option value="last_order_date">{t("Last order")}</option>
+          <option value="turnover_90d">{t("Turnover 90d")}</option>
+          <option value="days_since_last_order">{t("Days since last order")}</option>
         </select>
       </label>
       <label>
-        <span>Direction</span>
+        <span>{t("Direction")}</span>
         <select
           onChange={(event) =>
             update({ direction: event.target.value as CustomerListFilters["direction"] })
           }
           value={filters.direction}
         >
-          <option value="asc">Ascending</option>
-          <option value="desc">Descending</option>
+          <option value="asc">{t("Ascending")}</option>
+          <option value="desc">{t("Descending")}</option>
         </select>
       </label>
     </section>

@@ -11,6 +11,7 @@ import type {
   CustomerServiceQueueResponse,
   CustomerServiceSummary
 } from "./types";
+import { apiErrorMessage, formatDateTime, t } from "../../i18n";
 
 interface CustomerServicePageProps {
   onNavigate: (path: string) => void;
@@ -27,7 +28,7 @@ export async function loadCustomerServiceQueue(loader = fetchCustomerServiceQueu
     return {
       loading: false,
       data: null,
-      error: error instanceof Error ? error.message : "Customer Service queue unavailable"
+      error: apiErrorMessage(error, "Zoznam zákazníckeho servisu nie je dostupný.")
     };
   }
 }
@@ -81,17 +82,18 @@ export function CustomerServicePage({ onNavigate }: CustomerServicePageProps) {
     <section className="page-stack">
       <div className="page-heading">
         <div>
-          <p className="eyebrow">Customer Service</p>
-          <h2>Koho mám dnes volať?</h2>
+          <p className="eyebrow">{t("Customer Service")}</p>
+          <h2>{t("Who should I call today?")}</h2>
         </div>
         <p>
-          Deterministic daily queue based on CRM metrics, active segments, tasks, campaigns, and
-          recent interaction history.
+          {t(
+            "Deterministic daily queue based on CRM metrics, active segments, tasks, campaigns, and recent interaction history."
+          )}
         </p>
       </div>
       {notice ? <p className="success-notice">{notice}</p> : null}
       {loading ? (
-        <div className="loading-state">Loading Customer Service queue...</div>
+        <div className="loading-state">{t("Loading Customer Service queue...")}</div>
       ) : error ? (
         <CustomerServiceErrorState message={error} />
       ) : summary ? (
@@ -99,8 +101,11 @@ export function CustomerServicePage({ onNavigate }: CustomerServicePageProps) {
           <CustomerServiceSummaryCards summary={summary} />
           {meta ? (
             <p className="queue-meta">
-              Ranked {meta.evaluatedCandidates} candidates · Showing {meta.returned} calls · Updated{" "}
-              {new Date(meta.generatedAt).toLocaleString("en-GB")}
+              {t("Ranked {evaluated} candidates · Showing {returned} calls · Updated {updated}", {
+                evaluated: meta.evaluatedCandidates,
+                returned: meta.returned,
+                updated: formatDateTime(meta.generatedAt)
+              })}
             </p>
           ) : null}
           <CustomerServiceQueueTable
@@ -119,7 +124,7 @@ export function CustomerServicePage({ onNavigate }: CustomerServicePageProps) {
           onCancel={() => setSelectedCustomer(null)}
           onSuccess={(result) => {
             setSelectedCustomer(null);
-            setNotice(result.task ? "Call and follow-up task saved." : "Call saved.");
+            setNotice(result.task ? t("Call and follow-up task saved.") : t("Call saved."));
             void loadQueue();
           }}
           suggestedReason={toCallReason(selectedCustomer)}
@@ -134,7 +139,7 @@ export function CustomerServicePage({ onNavigate }: CustomerServicePageProps) {
                 onClick={() => setAssistantCustomer(null)}
                 type="button"
               >
-                Close
+                {t("Close")}
               </button>
             </div>
             <CommercialAssistantPanel

@@ -18,8 +18,8 @@ describe("frontend user management", () => {
     );
     expect(markup).toContain("Development Sales");
     expect(markup).toContain("Mapped subject");
-    expect(markup).toContain("Deactivate");
-    expect(markup).toContain("All roles");
+    expect(markup).toContain("Deaktivovať");
+    expect(markup).toContain("Všetky roly");
   });
 
   it("renders create and edit forms without a hard-delete action", () => {
@@ -31,9 +31,9 @@ describe("frontend user management", () => {
     };
     const createMarkup = renderToStaticMarkup(<UserFormModal {...props} user={null} />);
     const editMarkup = renderToStaticMarkup(<UserFormModal {...props} user={user()} />);
-    expect(createMarkup).toContain("Add user");
-    expect(editMarkup).toContain("Edit user");
-    expect(editMarkup).toContain("Auth subject");
+    expect(createMarkup).toContain("Pridať používateľa");
+    expect(editMarkup).toContain("Upraviť používateľa");
+    expect(editMarkup).toContain("Identifikátor prihlásenia");
     expect(editMarkup).not.toContain("Delete");
   });
 
@@ -97,7 +97,7 @@ describe("frontend user management", () => {
     const confirm = vi.fn().mockReturnValue(false);
     expect(confirmDeactivation(user(), confirm)).toBe(false);
     expect(confirm).toHaveBeenCalledWith(
-      "Deactivate Development Sales? Their CRM history will be preserved."
+      "Deaktivovať používateľa Development Sales? Historické údaje zostanú zachované."
     );
   });
 

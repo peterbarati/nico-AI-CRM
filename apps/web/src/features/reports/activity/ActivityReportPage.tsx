@@ -1,40 +1,48 @@
 import { useEffect, useState } from "react";
-import { formatLabel } from "../../customers/formatting";
 import { fetchActivityReport } from "./api";
 import type { ActivityReport } from "./types";
+import { apiErrorMessage, displayLabel, formatDate, t } from "../../../i18n";
 
 const initial = { period: "today", from: "", to: "", role: "", userId: "" };
 const metricLabels = {
-  callsCompleted: "Calls completed",
-  customerInteractions: "Interactions",
-  salesVisitsCompleted: "Visits completed",
-  openTasks: "Open tasks",
-  completedTasks: "Tasks completed",
-  overdueTasks: "Overdue tasks",
-  followUpsCreated: "Follow-ups created",
-  csToSalesHandoffs: "CS to Sales",
-  salesToCsHandoffs: "Sales to CS",
-  reactivationActivities: "Reactivation",
-  b2bActivities: "B2B activity"
+  callsCompleted: t("Completed"),
+  customerInteractions: t("Interactions"),
+  salesVisitsCompleted: t("Visits completed"),
+  openTasks: t("Open tasks"),
+  completedTasks: t("Tasks completed"),
+  overdueTasks: t("Overdue tasks"),
+  followUpsCreated: t("Follow-ups created"),
+  csToSalesHandoffs: t("CS to Sales"),
+  salesToCsHandoffs: t("Sales to CS"),
+  reactivationActivities: t("Reactivation"),
+  b2bActivities: t("B2B activity")
 } as const;
 
 export function ActivityReportPage() {
   const [filters, setFilters] = useState(initial);
   const [report, setReport] = useState<ActivityReport | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const update = (key: keyof typeof initial, value: string) =>
     setFilters((current) => ({ ...current, [key]: value }));
 
   useEffect(() => {
-    if (filters.period === "custom" && (!filters.from || !filters.to)) return;
+    if (filters.period === "custom" && (!filters.from || !filters.to)) {
+      setLoading(false);
+      setReport(null);
+      return;
+    }
     let mounted = true;
+    setLoading(true);
+    setReport(null);
     setError(null);
     fetchActivityReport(filters)
       .then((data) => mounted && setReport(data))
       .catch(
         (error: unknown) =>
-          mounted && setError(error instanceof Error ? error.message : "Report unavailable.")
-      );
+          mounted && setError(apiErrorMessage(error, "Report momentálne nie je dostupný."))
+      )
+      .finally(() => mounted && setLoading(false));
     return () => {
       mounted = false;
     };
@@ -44,25 +52,25 @@ export function ActivityReportPage() {
     <section className="page-stack">
       <div className="page-heading">
         <div>
-          <p className="eyebrow">Reports</p>
-          <h2>Activity report</h2>
+          <p className="eyebrow">{t("Reports")}</p>
+          <h2>{t("Activity report")}</h2>
         </div>
-        <p>Operational activity summarized by business date and responsible user.</p>
+        <p>{t("Operational activity summarized by business date and responsible user.")}</p>
       </div>
-      <section className="filter-panel" aria-label="Activity report filters">
+      <section className="filter-panel" aria-label={t("Activity report filters")}>
         <label>
-          Period
+          {t("Period")}
           <select value={filters.period} onChange={(event) => update("period", event.target.value)}>
-            <option value="today">Today</option>
-            <option value="week">This week</option>
-            <option value="month">This month</option>
-            <option value="custom">Custom</option>
+            <option value="today">{t("Today")}</option>
+            <option value="week">{t("This week")}</option>
+            <option value="month">{t("This month")}</option>
+            <option value="custom">{t("Custom")}</option>
           </select>
         </label>
         {filters.period === "custom" ? (
           <>
             <label>
-              From
+              {t("From")}
               <input
                 type="date"
                 value={filters.from}
@@ -70,7 +78,7 @@ export function ActivityReportPage() {
               />
             </label>
             <label>
-              To
+              {t("To")}
               <input
                 type="date"
                 value={filters.to}
@@ -80,11 +88,11 @@ export function ActivityReportPage() {
           </>
         ) : null}
         <label>
-          Role
+          {t("Role")}
           <select value={filters.role} onChange={(event) => update("role", event.target.value)}>
-            <option value="">All roles</option>
-            <option value="customer_service">Customer Service</option>
-            <option value="sales_rep">Sales</option>
+            <option value="">{t("All roles")}</option>
+            <option value="customer_service">{displayLabel("customer_service")}</option>
+            <option value="sales_rep">{displayLabel("sales_rep")}</option>
           </select>
         </label>
       </section>
@@ -92,7 +100,8 @@ export function ActivityReportPage() {
       {report ? (
         <>
           <p className="report-period">
-            {report.period.fromDate} to {report.period.toDate} · {report.period.timezone}
+            {formatDate(report.period.fromDate)} – {formatDate(report.period.toDate)} ·{" "}
+            {report.period.timezone}
           </p>
           <div className="metric-grid">
             {Object.entries(metricLabels).map(([key, label]) => (
@@ -106,16 +115,16 @@ export function ActivityReportPage() {
             <table className="crm-table">
               <thead>
                 <tr>
-                  <th>User</th>
-                  <th>Calls</th>
-                  <th>Interactions</th>
-                  <th>Visits</th>
-                  <th>Open</th>
-                  <th>Completed</th>
-                  <th>Overdue</th>
-                  <th>Follow-ups</th>
-                  <th>CS → Sales</th>
-                  <th>Sales → CS</th>
+                  <th>{t("User")}</th>
+                  <th>{t("Calls")}</th>
+                  <th>{t("Interactions")}</th>
+                  <th>{t("Visits")}</th>
+                  <th>{t("Open tasks")}</th>
+                  <th>{t("Tasks completed")}</th>
+                  <th>{t("Overdue tasks")}</th>
+                  <th>{t("Follow-ups created")}</th>
+                  <th>{t("CS to Sales")}</th>
+                  <th>{t("Sales to CS")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -123,7 +132,7 @@ export function ActivityReportPage() {
                   <tr key={user.userId}>
                     <td>
                       <strong>{user.userName}</strong>
-                      <span>{formatLabel(user.role)}</span>
+                      <span>{displayLabel(user.role)}</span>
                     </td>
                     <td>{user.callsCompleted}</td>
                     <td>{user.customerInteractions}</td>
@@ -140,9 +149,9 @@ export function ActivityReportPage() {
             </table>
           </div>
         </>
-      ) : (
-        <div className="loading-state">Loading activity report...</div>
-      )}
+      ) : loading ? (
+        <div className="loading-state">{t("Loading activity report...")}</div>
+      ) : null}
     </section>
   );
 }

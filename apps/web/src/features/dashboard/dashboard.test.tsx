@@ -71,11 +71,11 @@ afterEach(() => vi.unstubAllGlobals());
 describe("management dashboard frontend", () => {
   it("renders compact management metrics and explainable KPI rows", () => {
     const markup = renderToStaticMarkup(<ManagementDashboardView report={report} />);
-    expect(markup).toContain("Company turnover");
-    expect(markup).toContain("Plan vs actual");
+    expect(markup).toContain("Firemný obrat");
+    expect(markup).toContain("Plán vs. skutočnosť");
     expect(markup).toContain("Clara Support");
     expect(markup).toContain("CS_CALLS");
-    expect(markup).toContain("customer_interactions where interaction_type = CALL");
+    expect(markup).toContain("Interakcie zákazníkov typu hovor");
     expect(markup).not.toContain("bonus");
   });
 
@@ -117,9 +117,13 @@ describe("management dashboard frontend", () => {
     const failed = await loadDashboard(filters, async () => {
       throw new Error("Dashboard unavailable.");
     });
-    expect(failed).toEqual({ loading: false, report: null, error: "Dashboard unavailable." });
+    expect(failed).toEqual({
+      loading: false,
+      report: null,
+      error: "Prehľad momentálne nie je dostupný."
+    });
     const markup = renderToStaticMarkup(<DashboardContent {...failed} />);
-    expect(markup.match(/Dashboard unavailable\./g)).toHaveLength(1);
-    expect(markup).not.toContain("Loading management dashboard");
+    expect(markup.match(/Prehľad momentálne nie je dostupný\./g)).toHaveLength(1);
+    expect(markup).not.toContain("Načítava sa prehľad");
   });
 });

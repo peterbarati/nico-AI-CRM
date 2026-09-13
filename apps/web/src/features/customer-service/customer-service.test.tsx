@@ -91,12 +91,12 @@ describe("customer service frontend rendering", () => {
       />
     );
 
-    expect(summaryMarkup).toContain("Today&#x27;s call target");
+    expect(summaryMarkup).toContain("Denný cieľ hovorov");
     expect(summaryMarkup).toContain("3 / 8");
     expect(tableMarkup).toContain("Blue Pine Stores");
-    expect(tableMarkup).toContain("Critical");
-    expect(tableMarkup).toContain("REORDER_DUE");
-    expect(tableMarkup).toContain("Open profile");
+    expect(tableMarkup).toContain("Kritická");
+    expect(tableMarkup).toContain("Čas na doobjednanie");
+    expect(tableMarkup).toContain("Otvoriť profil");
   });
 
   it("renders the empty queue state", () => {
@@ -109,13 +109,13 @@ describe("customer service frontend rendering", () => {
       />
     );
 
-    expect(markup).toContain("No calls queued");
+    expect(markup).toContain("Žiadne hovory na vybavenie");
   });
 
   it("renders the error state", () => {
     const markup = renderToStaticMarkup(<CustomerServiceErrorState message="Queue unavailable" />);
 
-    expect(markup).toContain("Customer Service API error");
+    expect(markup).toContain("Zákaznícky servis nie je dostupný");
     expect(markup).toContain("Queue unavailable");
     expect(markup.match(/Queue unavailable/g)).toHaveLength(1);
   });
@@ -164,6 +164,10 @@ describe("customer service frontend rendering", () => {
       loadCustomerServiceQueue(async () => {
         throw new Error("Queue unavailable");
       })
-    ).resolves.toEqual({ loading: false, data: null, error: "Queue unavailable" });
+    ).resolves.toEqual({
+      loading: false,
+      data: null,
+      error: "Zoznam zákazníckeho servisu nie je dostupný."
+    });
   });
 });

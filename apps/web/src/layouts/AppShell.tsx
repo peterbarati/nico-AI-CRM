@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { CurrentActor } from "../features/auth/types";
+import { displayLabel, t } from "../i18n";
 
 export interface NavItem {
   label: string;
@@ -25,12 +26,12 @@ export function AppShell({
 }: AppShellProps) {
   return (
     <div className="app-frame">
-      <aside className="sidebar" aria-label="Primary navigation">
+      <aside className="sidebar" aria-label={t("Primary navigation")}>
         <div className="brand">
           <span className="brand-mark">N</span>
           <div>
             <strong>NICO AI CRM</strong>
-            <span>Internal commercial desk</span>
+            <span>{t("Internal commercial desk")}</span>
           </div>
         </div>
         <nav className="nav-list">
@@ -50,15 +51,15 @@ export function AppShell({
         <header className="topbar">
           <div>
             <p className="eyebrow">NICO AI CRM</p>
-            <h1>Customer operations</h1>
+            <h1>{t("Customer operations")}</h1>
           </div>
           <div className="actor-menu">
             <div>
               <strong>{actor.name}</strong>
-              <span>{actor.role.replaceAll("_", " ")}</span>
+              <span>{displayLabel(actor.role)}</span>
             </div>
             <button onClick={onLogout} type="button">
-              Log out
+              {t("Log out")}
             </button>
           </div>
         </header>

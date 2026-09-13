@@ -4,6 +4,7 @@ import { endSession, fetchCurrentActor, selectMockUser } from "./api";
 import { LoginPage } from "./LoginPage";
 import type { CurrentActor } from "./types";
 import { AuthApiError } from "./types";
+import { apiErrorMessage, t } from "../../i18n";
 
 interface AuthState {
   actor: CurrentActor;
@@ -31,7 +32,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setError(
           error instanceof AuthApiError
             ? error
-            : new AuthApiError("AUTH_REQUEST_FAILED", "Authentication is unavailable.", 0)
+            : new AuthApiError(
+                "AUTH_REQUEST_FAILED",
+                apiErrorMessage(error, "Služba prihlásenia momentálne nie je dostupná."),
+                0
+              )
         );
       }
     } finally {
@@ -59,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [actor, refresh]
   );
 
-  if (loading) return <div className="auth-screen">Checking secure session...</div>;
+  if (loading) return <div className="auth-screen">{t("Checking secure session...")}</div>;
   if (!value) {
     return (
       <LoginPage

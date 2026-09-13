@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import type { UserAdminItem, UserAdminValues } from "./types";
+import { displayLabel, t } from "../../i18n";
 
 const emptyValues: UserAdminValues = {
   name: "",
@@ -27,12 +28,12 @@ export function UserFormModal({ user, saving, error, onCancel, onSave }: UserFor
     const authProvider = values.authProvider?.trim() || null;
     const authSubject = values.authSubject?.trim() || null;
     if (user?.role === "admin" && values.role !== "admin") {
-      if (!window.confirm("Change this Admin to a less privileged role?")) return;
+      if (!window.confirm(t("Change this Admin to a less privileged role?"))) return;
     }
     if (
       user &&
       (authProvider !== user.authProvider || authSubject !== user.authSubject) &&
-      !window.confirm("Change this user's authentication identity mapping?")
+      !window.confirm(t("Change this user's authentication identity mapping?"))
     ) {
       return;
     }
@@ -50,11 +51,11 @@ export function UserFormModal({ user, saving, error, onCancel, onSave }: UserFor
       <form className="modal-panel user-form" onSubmit={(event) => void submit(event)}>
         <div className="modal-header">
           <div>
-            <p className="eyebrow">Administration</p>
-            <h3>{user ? "Edit user" : "Add user"}</h3>
+            <p className="eyebrow">{t("Administration")}</p>
+            <h3>{user ? t("Edit user") : t("Add user")}</h3>
           </div>
           <button
-            aria-label="Close"
+            aria-label={t("Close")}
             className="icon-button secondary-button"
             disabled={saving}
             onClick={onCancel}
@@ -66,7 +67,7 @@ export function UserFormModal({ user, saving, error, onCancel, onSave }: UserFor
         {error ? <p className="form-error">{error}</p> : null}
         <div className="form-grid">
           <label>
-            <span>Name</span>
+            <span>{t("Name")}</span>
             <input
               required
               maxLength={200}
@@ -75,7 +76,7 @@ export function UserFormModal({ user, saving, error, onCancel, onSave }: UserFor
             />
           </label>
           <label>
-            <span>Email</span>
+            <span>{t("Email")}</span>
             <input
               required
               type="email"
@@ -85,17 +86,18 @@ export function UserFormModal({ user, saving, error, onCancel, onSave }: UserFor
             />
           </label>
           <label>
-            <span>Role</span>
+            <span>{t("Role")}</span>
             <select
               value={values.role}
               onChange={(event) =>
                 setValues({ ...values, role: event.target.value as UserAdminValues["role"] })
               }
             >
-              <option value="admin">Admin</option>
-              <option value="manager">Manager</option>
-              <option value="customer_service">Customer Service</option>
-              <option value="sales_rep">Sales Representative</option>
+              {(["admin", "manager", "customer_service", "sales_rep"] as const).map((role) => (
+                <option key={role} value={role}>
+                  {displayLabel(role)}
+                </option>
+              ))}
             </select>
           </label>
           <label className="checkbox-field">
@@ -104,10 +106,10 @@ export function UserFormModal({ user, saving, error, onCancel, onSave }: UserFor
               checked={values.active}
               onChange={(event) => setValues({ ...values, active: event.target.checked })}
             />
-            <span>Active</span>
+            <span>{t("Active")}</span>
           </label>
           <label>
-            <span>Auth provider (optional)</span>
+            <span>{t("Auth provider (optional)")}</span>
             <input
               maxLength={64}
               placeholder="oidc"
@@ -118,7 +120,7 @@ export function UserFormModal({ user, saving, error, onCancel, onSave }: UserFor
             />
           </label>
           <label>
-            <span>Auth subject (optional)</span>
+            <span>{t("Auth subject (optional)")}</span>
             <input
               maxLength={255}
               value={values.authSubject ?? ""}
@@ -130,10 +132,10 @@ export function UserFormModal({ user, saving, error, onCancel, onSave }: UserFor
         </div>
         <div className="modal-actions">
           <button className="secondary-button" disabled={saving} onClick={onCancel} type="button">
-            Cancel
+            {t("Cancel")}
           </button>
           <button disabled={saving} type="submit">
-            {saving ? "Saving..." : "Save user"}
+            {saving ? t("Saving...") : t("Save user")}
           </button>
         </div>
       </form>

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { fetchManagementDashboard } from "./api";
 import { ManagementDashboardView } from "./ManagementDashboardView";
 import type { DashboardFilters, ManagementDashboard } from "./types";
+import { apiErrorMessage, displayLabel, t } from "../../i18n";
 
 const initialFilters: DashboardFilters = {
   period: "month",
@@ -27,7 +28,7 @@ export async function loadDashboard(
     return {
       loading: false,
       report: null,
-      error: error instanceof Error ? error.message : "Dashboard unavailable."
+      error: apiErrorMessage(error, "Prehľad momentálne nie je dostupný.")
     };
   }
 }
@@ -73,26 +74,26 @@ export function ManagementDashboardPage() {
     <section className="page-stack">
       <div className="page-heading">
         <div>
-          <p className="eyebrow">Management</p>
-          <h2>Commercial dashboard</h2>
+          <p className="eyebrow">{t("Management")}</p>
+          <h2>{t("Commercial dashboard")}</h2>
         </div>
-        <p>Deterministic company, team, and user performance from normalized CRM facts.</p>
+        <p>{t("Deterministic company, team, and user performance from normalized CRM facts.")}</p>
       </div>
-      <section className="filter-panel dashboard-filters" aria-label="Dashboard filters">
+      <section className="filter-panel dashboard-filters" aria-label={t("Dashboard filters")}>
         <label>
-          Period
+          {t("Period")}
           <select value={filters.period} onChange={(event) => update("period", event.target.value)}>
-            <option value="month">Current month</option>
-            <option value="previous_month">Previous month</option>
-            <option value="week">Current week</option>
-            <option value="day">Today</option>
-            <option value="custom">Custom</option>
+            <option value="month">{t("Current month")}</option>
+            <option value="previous_month">{t("Previous month")}</option>
+            <option value="week">{t("Current week")}</option>
+            <option value="day">{t("Today")}</option>
+            <option value="custom">{t("Custom")}</option>
           </select>
         </label>
         {filters.period === "custom" ? (
           <>
             <label>
-              From
+              {t("From")}
               <input
                 type="date"
                 value={filters.from}
@@ -100,7 +101,7 @@ export function ManagementDashboardPage() {
               />
             </label>
             <label>
-              To
+              {t("To")}
               <input
                 type="date"
                 value={filters.to}
@@ -110,17 +111,17 @@ export function ManagementDashboardPage() {
           </>
         ) : null}
         <label>
-          Role
+          {t("Role")}
           <select value={filters.role} onChange={(event) => update("role", event.target.value)}>
-            <option value="">All roles</option>
-            <option value="customer_service">Customer Service</option>
-            <option value="sales_rep">Sales</option>
+            <option value="">{t("All roles")}</option>
+            <option value="customer_service">{displayLabel("customer_service")}</option>
+            <option value="sales_rep">{displayLabel("sales_rep")}</option>
           </select>
         </label>
         <label>
-          User
+          {t("User")}
           <select value={filters.userId} onChange={(event) => update("userId", event.target.value)}>
-            <option value="">All users</option>
+            <option value="">{t("All users")}</option>
             {userOptions.map((user) => (
               <option key={user.userId} value={user.userId}>
                 {user.userName}
@@ -143,8 +144,10 @@ export function DashboardContent({
   error: string | null;
   report: ManagementDashboard | null;
 }) {
-  if (loading) return <div className="loading-state">Loading management dashboard...</div>;
+  if (loading) return <div className="loading-state">{t("Loading management dashboard...")}</div>;
   if (error) return <div className="error-state">{error}</div>;
   if (report) return <ManagementDashboardView report={report} />;
-  return <div className="empty-state">Select a complete date range to load the dashboard.</div>;
+  return (
+    <div className="empty-state">{t("Select a complete date range to load the dashboard.")}</div>
+  );
 }

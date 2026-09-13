@@ -1,6 +1,14 @@
 import { formatCurrency, formatDate, formatDays, formatLabel } from "../customers/formatting";
 import { SegmentBadges } from "../customers/SegmentBadges";
 import type { CustomerServiceQueueItem } from "./types";
+import {
+  customerServiceReason,
+  displayLabel,
+  formatNumber,
+  openTaskCountLabel,
+  priorityLabel,
+  t
+} from "../../i18n";
 
 interface CustomerServiceQueueTableProps {
   items: CustomerServiceQueueItem[];
@@ -8,13 +16,6 @@ interface CustomerServiceQueueTableProps {
   onOpenCustomer: (customerId: string) => void;
   onPrepareCall: (item: CustomerServiceQueueItem) => void;
 }
-
-const priorityLabels: Record<string, string> = {
-  CRITICAL: "Critical",
-  HIGH: "High",
-  LOW: "Low",
-  MEDIUM: "Medium"
-};
 
 export function CustomerServiceQueueTable({
   items,
@@ -25,8 +26,8 @@ export function CustomerServiceQueueTable({
   if (items.length === 0) {
     return (
       <section className="empty-state">
-        <h2>No calls queued</h2>
-        <p>No customer currently meets the deterministic contact rules.</p>
+        <h2>{t("No calls queued")}</h2>
+        <p>{t("No customer currently meets the deterministic contact rules.")}</p>
       </section>
     );
   }
@@ -36,15 +37,15 @@ export function CustomerServiceQueueTable({
       <table className="crm-table cs-queue-table">
         <thead>
           <tr>
-            <th>Priority</th>
-            <th>Customer</th>
-            <th>Reason</th>
-            <th>Last order</th>
-            <th>Reorder</th>
-            <th>Trend</th>
-            <th>Segments</th>
-            <th>Last contact</th>
-            <th>Action</th>
+            <th>{t("Priority")}</th>
+            <th>{t("Customer")}</th>
+            <th>{t("Reason")}</th>
+            <th>{t("Last order")}</th>
+            <th>{t("Reorder")}</th>
+            <th>{t("Trend")}</th>
+            <th>{t("Segments")}</th>
+            <th>{t("Last contact")}</th>
+            <th>{t("Action")}</th>
           </tr>
         </thead>
         <tbody>
@@ -52,20 +53,29 @@ export function CustomerServiceQueueTable({
             <tr key={item.customerId}>
               <td>
                 <span className={`priority-pill priority-pill--${item.priority.priorityLevel}`}>
-                  {priorityLabels[item.priority.priorityLevel]}
+                  {priorityLabel(item.priority.priorityLevel)}
                 </span>
-                <span className="table-subtle">{item.priority.priorityScore} pts</span>
+                <span className="table-subtle">
+                  {formatNumber(item.priority.priorityScore, 0)} b.
+                </span>
               </td>
               <td>
                 <strong>{item.companyName}</strong>
                 <span>{item.city ?? item.country}</span>
-                <span>{item.assignedSalesRep?.name ?? "Unassigned sales rep"}</span>
+                <span>{item.assignedSalesRep?.name ?? t("Unassigned sales rep")}</span>
                 <span>{formatLabel(item.b2bStatus)}</span>
               </td>
               <td>
-                <strong>{item.priority.reasons[0]?.message ?? "Review customer status"}</strong>
+                <strong>
+                  {item.priority.reasons[0]
+                    ? customerServiceReason(
+                        item.priority.reasons[0].code,
+                        item.priority.reasons[0].value
+                      )
+                    : t("Review customer status")}
+                </strong>
                 {item.priority.reasons.slice(1, 3).map((reason) => (
-                  <span key={reason.code}>{reason.message}</span>
+                  <span key={reason.code}>{customerServiceReason(reason.code, reason.value)}</span>
                 ))}
               </td>
               <td>
@@ -74,11 +84,11 @@ export function CustomerServiceQueueTable({
               </td>
               <td>
                 {formatDays(item.averageReorderDays)}
-                <span className="table-subtle">{item.openTaskCount} open tasks</span>
+                <span className="table-subtle">{openTaskCountLabel(item.openTaskCount)}</span>
               </td>
               <td>
                 <span className={`trend trend--${item.salesTrend}`}>
-                  {formatLabel(item.salesTrend)}
+                  {displayLabel(item.salesTrend)}
                 </span>
                 <span className="table-subtle">
                   {formatCurrency(item.turnover90d)} vs {formatCurrency(item.previousTurnover90d)}
@@ -90,23 +100,29 @@ export function CustomerServiceQueueTable({
               <td>
                 {formatDate(item.lastInteraction?.createdAt)}
                 <span className="table-subtle">
-                  {item.lastInteraction?.result ?? item.lastInteraction?.reason ?? "No result"}
+                  {item.lastInteraction?.result || item.lastInteraction?.reason
+                    ? displayLabel(item.lastInteraction?.result ?? item.lastInteraction?.reason)
+                    : t("No result")}
                 </span>
               </td>
               <td>
-                <strong>{item.priority.primaryRecommendedAction ?? "REVIEW"}</strong>
+                <strong>
+                  {item.priority.primaryRecommendedAction
+                    ? displayLabel(item.priority.primaryRecommendedAction)
+                    : t("Review customer status")}
+                </strong>
                 <button
                   className="secondary-button"
                   onClick={() => onPrepareCall(item)}
                   type="button"
                 >
-                  Prepare call
+                  {t("Prepare call")}
                 </button>
                 <button onClick={() => onLogCall(item)} type="button">
-                  Log call
+                  {t("Log call")}
                 </button>
                 <button onClick={() => onOpenCustomer(item.customerId)} type="button">
-                  Open profile
+                  {t("Open profile")}
                 </button>
               </td>
             </tr>

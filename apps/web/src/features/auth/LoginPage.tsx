@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { fetchAuthConfiguration, fetchMockUsers } from "./api";
 import type { AuthApiError, AuthConfiguration, MockUser } from "./types";
+import { apiErrorMessage, displayLabel, t } from "../../i18n";
 
 export function LoginPage({
   error,
@@ -29,7 +30,7 @@ export function LoginPage({
     try {
       await onSelect(userId);
     } catch (error) {
-      setLocalError(error instanceof Error ? error.message : "User selection failed.");
+      setLocalError(apiErrorMessage(error, "Používateľa sa nepodarilo vybrať."));
       setSelecting(null);
     }
   }
@@ -69,7 +70,7 @@ export async function loadLoginBootstrap(): Promise<LoginBootstrapState> {
       loading: false,
       configuration: null,
       users: [],
-      error: error instanceof Error ? error.message : "Authentication is unavailable."
+      error: apiErrorMessage(error, "Služba prihlásenia momentálne nie je dostupná.")
     };
   }
 }
@@ -90,27 +91,29 @@ export function LoginPageContent({
   const message =
     localError ??
     bootstrap.error ??
-    (error && error.code !== "UNAUTHENTICATED" ? error.message : null);
+    (error && error.code !== "UNAUTHENTICATED"
+      ? apiErrorMessage(error, "Služba prihlásenia momentálne nie je dostupná.")
+      : null);
 
   return (
     <main className="auth-screen">
       <section className="auth-panel">
         <p className="eyebrow">NICO AI CRM</p>
-        <h1>Sign in</h1>
+        <h1>{t("Sign in")}</h1>
         {message ? <p className="auth-message">{message}</p> : null}
-        {bootstrap.loading ? <p>Loading authentication options...</p> : null}
+        {bootstrap.loading ? <p>{t("Loading authentication options...")}</p> : null}
         {bootstrap.configuration?.mode === "OIDC" ? (
           bootstrap.configuration.loginUrl ? (
             <a className="primary-link" href={bootstrap.configuration.loginUrl}>
-              Continue with company identity
+              {t("Continue with company identity")}
             </a>
           ) : (
-            <p className="auth-message">Company sign-in URL is not configured.</p>
+            <p className="auth-message">{t("Company sign-in URL is not configured.")}</p>
           )
         ) : null}
         {bootstrap.configuration?.mode === "MOCK" ? (
           <div className="mock-user-list">
-            <p className="muted">Local development identities</p>
+            <p className="muted">{t("Local development identities")}</p>
             {bootstrap.users.map((user) => (
               <button
                 disabled={selecting !== null}
@@ -119,8 +122,8 @@ export function LoginPageContent({
                 type="button"
               >
                 <strong>{user.name}</strong>
-                <span>{user.role.replaceAll("_", " ")}</span>
-                {!user.active ? <span>Inactive</span> : null}
+                <span>{displayLabel(user.role)}</span>
+                {!user.active ? <span>{t("Inactive")}</span> : null}
               </button>
             ))}
           </div>

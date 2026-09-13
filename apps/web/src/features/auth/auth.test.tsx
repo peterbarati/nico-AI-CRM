@@ -112,7 +112,7 @@ describe("frontend authentication", () => {
       loading: false,
       configuration: null,
       users: [],
-      error: "Authentication service is unavailable."
+      error: "Služba prihlásenia momentálne nie je dostupná."
     });
 
     const markup = renderToStaticMarkup(
@@ -126,8 +126,8 @@ describe("frontend authentication", () => {
         select={async () => undefined}
       />
     );
-    expect(markup.match(/Authentication service is unavailable\./g)).toHaveLength(1);
-    expect(markup).not.toContain("Loading authentication options...");
+    expect(markup.match(/Služba prihlásenia momentálne nie je dostupná\./g)).toHaveLength(1);
+    expect(markup).not.toContain("Načítavajú sa možnosti prihlásenia...");
   });
 
   it("rejects malformed success envelopes and non-JSON auth responses", async () => {
@@ -156,7 +156,7 @@ describe("frontend authentication", () => {
         select={async () => undefined}
       />
     );
-    expect(markup).toContain("Loading authentication options...");
+    expect(markup).toContain("Načítavajú sa možnosti prihlásenia...");
   });
 
   it("maps routes and navigation to resolved permissions", () => {
@@ -165,10 +165,10 @@ describe("frontend authentication", () => {
     const salesNavigation = navItems
       .filter((item) => rolePermissions.sales_rep.includes(item.permission))
       .map((item) => item.label);
-    expect(salesNavigation).toContain("Sales");
-    expect(salesNavigation).not.toContain("Settings");
-    expect(salesNavigation).not.toContain("Reports");
-    expect(renderToStaticMarkup(<ForbiddenState />)).toContain("Access denied");
+    expect(salesNavigation).toContain("Obchod");
+    expect(salesNavigation).not.toContain("Nastavenia");
+    expect(salesNavigation).not.toContain("Reporty");
+    expect(renderToStaticMarkup(<ForbiddenState />)).toContain("Nemáte oprávnenie");
   });
 });
 

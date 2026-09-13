@@ -54,9 +54,12 @@ describe("AI assistant providers", () => {
       maxOutputTokens: 500,
       timeoutMs: 1000
     });
-    expect(result.output.priorityExplanation).toBe("No order for 100 days.");
+    expect(result.output.priorityExplanation).toBe("Zákazník neobjednal 100 dní.");
+    expect(result.output.customerSummary).toContain("bez registrácie");
+    expect(result.output.customerSummary).not.toContain("missing");
+    expect(result.output.suggestedOpening).toContain("Dobrý deň");
     expect(result.output.confidence).toBe("HIGH");
-    expect(customerCommercialAssistantPromptVersion).toBe("customer-commercial-assistant-v1");
+    expect(customerCommercialAssistantPromptVersion).toBe("customer-commercial-assistant-v3-sk");
   });
 
   it("rejects malformed structured output", () => {

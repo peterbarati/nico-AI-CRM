@@ -1,4 +1,5 @@
 import type { ApiPagination } from "./types";
+import { t } from "../../i18n";
 
 interface PaginationControlsProps {
   pagination: ApiPagination | null;
@@ -14,23 +15,27 @@ export function PaginationControls({ pagination, onPageChange }: PaginationContr
   const hasNextPage = pagination.page < pagination.totalPages;
 
   return (
-    <div className="pagination" aria-label="Customer list pagination">
+    <div className="pagination" aria-label={t("Customer list pagination")}>
       <button
         disabled={!hasPreviousPage}
         onClick={() => onPageChange(pagination.page - 1)}
         type="button"
       >
-        Previous
+        {t("Previous")}
       </button>
       <span>
-        Page {pagination.page} of {pagination.totalPages || 1} · {pagination.total} results
+        {t("Page {page} of {pages} · {total} results", {
+          page: pagination.page,
+          pages: pagination.totalPages || 1,
+          total: pagination.total
+        })}
       </span>
       <button
         disabled={!hasNextPage}
         onClick={() => onPageChange(pagination.page + 1)}
         type="button"
       >
-        Next
+        {t("Next")}
       </button>
     </div>
   );

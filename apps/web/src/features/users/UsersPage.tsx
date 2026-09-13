@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
-import { formatLabel } from "../customers/formatting";
 import { createUser, fetchUsers, setUserActive, updateUser } from "./api";
 import { UserFormModal } from "./UserFormModal";
 import type { UserAdminItem, UserAdminValues, UserListFilters, UserListResult } from "./types";
+import { apiErrorMessage, displayLabel, formatDate, t } from "../../i18n";
 
 export const initialUserFilters: UserListFilters = {
   page: 1,
@@ -29,7 +29,7 @@ export function UsersPage() {
       setError(null);
       setResult(await fetchUsers(filters));
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Users could not be loaded.");
+      setError(apiErrorMessage(error, "Používateľov sa nepodarilo načítať."));
     }
   }, [filters]);
 
@@ -44,7 +44,7 @@ export function UsersPage() {
       setEditing(undefined);
       await Promise.all([load(), refresh()]);
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : "User could not be saved.");
+      setFormError(apiErrorMessage(error, "Používateľa sa nepodarilo uložiť."));
     } finally {
       setSaving(false);
     }
@@ -59,7 +59,7 @@ export function UsersPage() {
       await setUserActive(user.id, active);
       await Promise.all([load(), refresh()]);
     } catch (error) {
-      setError(error instanceof Error ? error.message : "User status could not be changed.");
+      setError(apiErrorMessage(error, "Stav používateľa sa nepodarilo zmeniť."));
     }
   }
 
@@ -67,8 +67,8 @@ export function UsersPage() {
     <section className="page-stack">
       <div className="page-heading">
         <div>
-          <p className="eyebrow">Administration</p>
-          <h2>Users</h2>
+          <p className="eyebrow">{t("Administration")}</p>
+          <h2>{t("Users")}</h2>
         </div>
         <button
           onClick={() => {
@@ -77,13 +77,13 @@ export function UsersPage() {
           }}
           type="button"
         >
-          Add user
+          {t("Add user")}
         </button>
       </div>
       <UserFilters filters={filters} onChange={setFilters} />
       {error ? <p className="form-error">{error}</p> : null}
       {!result ? (
-        <div className="loading-state">Loading CRM users...</div>
+        <div className="loading-state">{t("Loading CRM users...")}</div>
       ) : (
         <UserTable
           users={result.items}
@@ -95,24 +95,27 @@ export function UsersPage() {
         />
       )}
       {result ? (
-        <div className="pagination" aria-label="User list pagination">
+        <div className="pagination" aria-label={t("User list pagination")}>
           <button
             disabled={result.pagination.page <= 1}
             onClick={() => setFilters({ ...filters, page: filters.page - 1 })}
             type="button"
           >
-            Previous
+            {t("Previous")}
           </button>
           <span>
-            Page {result.pagination.page} of {result.pagination.totalPages || 1} ·{" "}
-            {result.pagination.total} users
+            {t("Page {page} of {pages} · {total} users", {
+              page: result.pagination.page,
+              pages: result.pagination.totalPages || 1,
+              total: result.pagination.total
+            })}
           </span>
           <button
             disabled={result.pagination.page >= result.pagination.totalPages}
             onClick={() => setFilters({ ...filters, page: filters.page + 1 })}
             type="button"
           >
-            Next
+            {t("Next")}
           </button>
         </div>
       ) : null}
@@ -133,7 +136,7 @@ export function confirmDeactivation(
   user: Pick<UserAdminItem, "name">,
   confirm: (message: string) => boolean = window.confirm
 ) {
-  return confirm(`Deactivate ${user.name}? Their CRM history will be preserved.`);
+  return confirm(t("Deactivate {name}? Their CRM history will be preserved.", { name: user.name }));
 }
 
 export function UserFilters({
@@ -146,30 +149,31 @@ export function UserFilters({
   return (
     <div className="filter-panel users-filter-panel">
       <label>
-        <span>Search</span>
+        <span>{t("Search")}</span>
         <input
           value={filters.search}
           onChange={(event) => onChange({ ...filters, search: event.target.value, page: 1 })}
-          placeholder="Name, email, or auth subject"
+          placeholder={t("Name, email, or auth subject")}
         />
       </label>
       <label>
-        <span>Role</span>
+        <span>{t("Role")}</span>
         <select
           value={filters.role}
           onChange={(event) =>
             onChange({ ...filters, role: event.target.value as UserListFilters["role"], page: 1 })
           }
         >
-          <option value="">All roles</option>
-          <option value="admin">Admin</option>
-          <option value="manager">Manager</option>
-          <option value="customer_service">Customer Service</option>
-          <option value="sales_rep">Sales Representative</option>
+          <option value="">{t("All roles")}</option>
+          {(["admin", "manager", "customer_service", "sales_rep"] as const).map((role) => (
+            <option key={role} value={role}>
+              {displayLabel(role)}
+            </option>
+          ))}
         </select>
       </label>
       <label>
-        <span>Status</span>
+        <span>{t("Status")}</span>
         <select
           value={filters.active}
           onChange={(event) =>
@@ -180,29 +184,29 @@ export function UserFilters({
             })
           }
         >
-          <option value="">All statuses</option>
-          <option value="true">Active</option>
-          <option value="false">Inactive</option>
+          <option value="">{t("All statuses")}</option>
+          <option value="true">{t("Active")}</option>
+          <option value="false">{t("Inactive")}</option>
         </select>
       </label>
       <label>
-        <span>Sort</span>
+        <span>{t("Sort")}</span>
         <select
           value={filters.sort}
           onChange={(event) =>
             onChange({ ...filters, sort: event.target.value as UserListFilters["sort"], page: 1 })
           }
         >
-          <option value="name">Name</option>
-          <option value="email">Email</option>
-          <option value="role">Role</option>
-          <option value="active">Status</option>
-          <option value="created_at">Created</option>
-          <option value="updated_at">Updated</option>
+          <option value="name">{t("Name")}</option>
+          <option value="email">{t("Email")}</option>
+          <option value="role">{t("Role")}</option>
+          <option value="active">{t("Status")}</option>
+          <option value="created_at">{t("Created")}</option>
+          <option value="updated_at">{t("Updated")}</option>
         </select>
       </label>
       <label>
-        <span>Direction</span>
+        <span>{t("Direction")}</span>
         <select
           value={filters.direction}
           onChange={(event) =>
@@ -213,8 +217,8 @@ export function UserFilters({
             })
           }
         >
-          <option value="asc">Ascending</option>
-          <option value="desc">Descending</option>
+          <option value="asc">{t("Ascending")}</option>
+          <option value="desc">{t("Descending")}</option>
         </select>
       </label>
     </div>
@@ -230,19 +234,20 @@ export function UserTable({
   onEdit: (user: UserAdminItem) => void;
   onActiveChange: (user: UserAdminItem, active: boolean) => void;
 }) {
-  if (!users.length) return <div className="empty-state">No users match the selected filters.</div>;
+  if (!users.length)
+    return <div className="empty-state">{t("No users match the selected filters.")}</div>;
   return (
     <div className="table-wrap">
       <table className="crm-table users-table">
         <thead>
           <tr>
-            <th>User</th>
-            <th>Role</th>
-            <th>Status</th>
-            <th>Identity</th>
-            <th>Created</th>
-            <th>Updated</th>
-            <th>Actions</th>
+            <th>{t("User")}</th>
+            <th>{t("Role")}</th>
+            <th>{t("Status")}</th>
+            <th>{t("Identity")}</th>
+            <th>{t("Created")}</th>
+            <th>{t("Updated")}</th>
+            <th>{t("Actions")}</th>
           </tr>
         </thead>
         <tbody>
@@ -252,20 +257,20 @@ export function UserTable({
                 <strong>{user.name}</strong>
                 <span>{user.email}</span>
               </td>
-              <td>{formatLabel(user.role)}</td>
+              <td>{displayLabel(user.role)}</td>
               <td>
                 <span className={`badge ${user.active ? "badge--success" : "badge--muted"}`}>
-                  {user.active ? "Active" : "Inactive"}
+                  {user.active ? t("Active") : t("Inactive")}
                 </span>
               </td>
               <td>
                 {user.identityMapped ? (
                   <>
-                    <strong>{user.authProvider}</strong>
+                    <strong>{displayLabel(user.authProvider)}</strong>
                     <span>{user.authSubject}</span>
                   </>
                 ) : (
-                  "Not mapped"
+                  t("Not mapped")
                 )}
               </td>
               <td>{formatDate(user.createdAt)}</td>
@@ -273,14 +278,14 @@ export function UserTable({
               <td>
                 <div className="action-group">
                   <button className="secondary-button" onClick={() => onEdit(user)} type="button">
-                    Edit
+                    {t("Edit")}
                   </button>
                   <button
                     className="secondary-button"
                     onClick={() => onActiveChange(user, !user.active)}
                     type="button"
                   >
-                    {user.active ? "Deactivate" : "Activate"}
+                    {user.active ? t("Deactivate") : t("Activate")}
                   </button>
                 </div>
               </td>
@@ -290,8 +295,4 @@ export function UserTable({
       </table>
     </div>
   );
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(value));
 }

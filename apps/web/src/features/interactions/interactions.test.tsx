@@ -21,12 +21,14 @@ describe("call workflow frontend", () => {
       />
     );
 
-    expect(markup).toContain("Log call");
+    expect(markup).toContain("Zapísať hovor");
     expect(markup).toContain("Blue Pine Stores");
-    expect(markup).toContain("Call reason");
-    expect(markup).toContain("Call result");
-    expect(markup).toContain("Next action");
-    expect(markup).toContain("Save call");
+    expect(markup).toContain("Dôvod hovoru");
+    expect(markup).toContain("Výsledok hovoru");
+    expect(markup).toContain("Ďalší krok");
+    expect(markup).toContain("Uložiť hovor");
+    expect(markup).toContain('value="REORDER"');
+    expect(markup).toContain("Doplnenie zásob");
   });
 
   it("uses the shared rules for follow-up validation", () => {
@@ -202,7 +204,7 @@ describe("call workflow frontend", () => {
 
     expect(markup).toContain("Cedar Office Supply");
     expect(markup).toContain("Buyer needs an assortment review.");
-    expect(markup).toContain("Requested by Clara Support");
-    expect(markup).toContain("Open task");
+    expect(markup).toContain("Požiadavku zadal používateľ Clara Support");
+    expect(markup).toContain("Otvoriť úlohu");
   });
 });

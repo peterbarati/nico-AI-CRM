@@ -1,4 +1,5 @@
 import type { CustomerListSegment } from "./types";
+import { displayLabel, t } from "../../i18n";
 
 interface SegmentBadgesProps {
   segments: CustomerListSegment[];
@@ -8,7 +9,7 @@ const riskSegments = new Set(["AT_RISK", "CRITICAL", "DECLINING", "REACTIVATION"
 
 export function SegmentBadges({ segments }: SegmentBadgesProps) {
   if (segments.length === 0) {
-    return <span className="muted">No active segments</span>;
+    return <span className="muted">{t("No active segments")}</span>;
   }
 
   return (
@@ -17,9 +18,9 @@ export function SegmentBadges({ segments }: SegmentBadgesProps) {
         <span
           className={riskSegments.has(segment.code) ? "badge badge--risk" : "badge"}
           key={segment.id}
-          title={segment.reason ?? segment.name}
+          title={displayLabel(segment.code)}
         >
-          {segment.code}
+          {displayLabel(segment.code)}
         </span>
       ))}
     </div>

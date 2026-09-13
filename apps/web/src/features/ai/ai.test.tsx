@@ -10,9 +10,9 @@ describe("commercial assistant frontend", () => {
     const markup = renderToStaticMarkup(
       <CommercialAssistantPanel customerId="cus-1" customerName="Demo Shop" />
     );
-    expect(markup).toContain("Commercial assistant");
-    expect(markup).toContain("Not generated yet");
-    expect(markup).toContain("Prepare call");
+    expect(markup).toContain("AI obchodný asistent");
+    expect(markup).toContain("Odporúčanie ešte nebolo vytvorené");
+    expect(markup).toContain("Pripraviť hovor");
   });
 
   it("renders loading, success, disabled, and provider error states", () => {
@@ -69,11 +69,11 @@ describe("commercial assistant frontend", () => {
       <CommercialAssistantContent data={null} error="Provider failed." loading={false} />
     );
 
-    expect(loading).toContain("Preparing grounded recommendations");
-    expect(success).toContain("Facts");
-    expect(success).toContain("AI recommendation");
-    expect(disabled).toContain("AI disabled");
-    expect(providerError).toContain("AI assistance unavailable");
+    expect(loading).toContain("Pripravujú sa odporúčania");
+    expect(success).toContain("Fakty");
+    expect(success).toContain("AI odporúčanie");
+    expect(disabled).toContain("AI je vypnutá");
+    expect(providerError).toContain("AI asistent momentálne nie je dostupný");
   });
 
   it("handles structured success and provider errors", async () => {

@@ -9,6 +9,7 @@ import type {
   CustomerListFilters,
   CustomerListItem
 } from "./types";
+import { apiErrorMessage, t } from "../../i18n";
 
 interface CustomerListPageProps {
   onOpenCustomer: (customerId: string) => void;
@@ -56,7 +57,7 @@ export function CustomerListPage({ onOpenCustomer }: CustomerListPageProps) {
       })
       .catch((unknownError: unknown) => {
         if (mounted) {
-          setError(unknownError instanceof Error ? unknownError.message : "Customers unavailable");
+          setError(apiErrorMessage(unknownError, "Zákazníci momentálne nie sú dostupní."));
           setCustomers([]);
           setPagination(null);
         }
@@ -76,19 +77,20 @@ export function CustomerListPage({ onOpenCustomer }: CustomerListPageProps) {
     <section className="page-stack">
       <div className="page-heading">
         <div>
-          <p className="eyebrow">Customers</p>
-          <h2>Who should I call today?</h2>
+          <p className="eyebrow">{t("Customers")}</p>
+          <h2>{t("Customers")}</h2>
         </div>
         <p>
-          Read-only CRM view powered by D1 demo data. Sorting and filtering run through the Worker
-          API.
+          {t(
+            "Read-only CRM view powered by D1 demo data. Sorting and filtering run through the Worker API."
+          )}
         </p>
       </div>
       <CustomerFilters filters={filters} onChange={setFilters} options={filterOptions} />
-      {loading ? <div className="loading-state">Loading customers...</div> : null}
+      {loading ? <div className="loading-state">{t("Loading customers...")}</div> : null}
       {error ? (
         <section className="error-state">
-          <h2>Customer API error</h2>
+          <h2>{t("Customer API error")}</h2>
           <p>{error}</p>
         </section>
       ) : null}

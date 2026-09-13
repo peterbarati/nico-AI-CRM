@@ -1,5 +1,6 @@
 import { formatLabel } from "./formatting";
 import type { CustomerOverview } from "./types";
+import { t } from "../../i18n";
 
 interface CustomerDetailHeaderProps {
   overview: CustomerOverview;
@@ -13,7 +14,7 @@ export function CustomerDetailHeader({ overview, onBack, onLogCall }: CustomerDe
   return (
     <section className="detail-header">
       <button className="link-button" onClick={onBack} type="button">
-        Back to customers
+        {t("Back to customers")}
       </button>
       <div className="detail-header-main">
         <div>
@@ -21,23 +22,23 @@ export function CustomerDetailHeader({ overview, onBack, onLogCall }: CustomerDe
           <h2>{customer.companyName}</h2>
           <div className="detail-meta">
             <span className={customer.active ? "badge badge--success" : "badge badge--muted"}>
-              {customer.active ? "Active" : "Inactive"}
+              {customer.active ? t("Active") : t("Inactive")}
             </span>
             <span className="badge">{formatLabel(customer.b2bStatus)}</span>
-            <span>{customer.assignedSalesRep?.name ?? "Unassigned sales rep"}</span>
-            <span>{customer.phone ?? "No phone"}</span>
-            <span>{customer.email ?? "No email"}</span>
+            <span>{customer.assignedSalesRep?.name ?? t("Unassigned sales rep")}</span>
+            <span>{customer.phone ?? t("No phone")}</span>
+            <span>{customer.email ?? t("No email")}</span>
           </div>
         </div>
-        <div className="action-group" aria-label="Customer actions">
+        <div className="action-group" aria-label={t("Customer actions")}>
           <button onClick={onLogCall} type="button">
-            Log call
+            {t("Log call")}
           </button>
           <button disabled type="button">
-            Create task
+            {t("Create task")}
           </button>
           <button disabled type="button">
-            Plan visit
+            {t("Plan visit")}
           </button>
         </div>
       </div>

@@ -5,6 +5,7 @@ import { fetchSalesTasks, fetchSalesUsers } from "./api";
 import { SalesQueueTable } from "./SalesQueueTable";
 import { SalesTaskPanel } from "./SalesTaskPanel";
 import type { SalesTask, SalesTaskFilters } from "./types";
+import { apiErrorMessage, displayLabel, priorityLabel, t } from "../../i18n";
 
 const initialFilters: SalesTaskFilters = {
   page: 1,
@@ -40,7 +41,7 @@ export function SalesPage({ onNavigate }: { onNavigate: (path: string) => void }
       })
       .catch(
         (error: unknown) =>
-          mounted && setError(error instanceof Error ? error.message : "Sales queue unavailable.")
+          mounted && setError(apiErrorMessage(error, "Obchodné úlohy momentálne nie sú dostupné."))
       )
       .finally(() => mounted && setLoading(false));
     return () => {
@@ -58,19 +59,19 @@ export function SalesPage({ onNavigate }: { onNavigate: (path: string) => void }
     <section className="page-stack">
       <div className="page-heading">
         <div>
-          <p className="eyebrow">Sales</p>
-          <h2>Sales work queue</h2>
+          <p className="eyebrow">{t("Sales")}</p>
+          <h2>{t("Sales work queue")}</h2>
         </div>
-        <p>Assigned tasks, visit lifecycle, and Customer Service handoff context.</p>
+        <p>{t("Assigned tasks, visit lifecycle, and Customer Service handoff context.")}</p>
       </div>
-      <section className="filter-panel" aria-label="Sales task filters">
+      <section className="filter-panel" aria-label={t("Sales task filters")}>
         <label>
-          Assigned
+          {t("Assigned")}
           <select
             value={filters.assignedUserId}
             onChange={(event) => updateFilter("assignedUserId", event.target.value)}
           >
-            <option value="">All Sales reps</option>
+            <option value="">{t("All Sales reps")}</option>
             {users.map((user) => (
               <option key={user.id} value={user.id}>
                 {user.name}
@@ -79,44 +80,47 @@ export function SalesPage({ onNavigate }: { onNavigate: (path: string) => void }
           </select>
         </label>
         <label>
-          Status
+          {t("Status")}
           <select
             value={filters.status}
             onChange={(event) => updateFilter("status", event.target.value)}
           >
-            <option value="">Actionable</option>
-            <option value="open">Open</option>
-            <option value="in_progress">In progress</option>
-            <option value="completed">Completed</option>
+            <option value="">{t("Actionable")}</option>
+            {(["open", "in_progress", "completed"] as const).map((value) => (
+              <option key={value} value={value}>
+                {displayLabel(value)}
+              </option>
+            ))}
           </select>
         </label>
         <label>
-          Priority
+          {t("Priority")}
           <select
             value={filters.priority}
             onChange={(event) => updateFilter("priority", event.target.value)}
           >
-            <option value="">All priorities</option>
-            <option value="urgent">Urgent</option>
-            <option value="high">High</option>
-            <option value="normal">Normal</option>
-            <option value="low">Low</option>
+            <option value="">{t("All priorities")}</option>
+            {(["urgent", "high", "normal", "low"] as const).map((value) => (
+              <option key={value} value={value}>
+                {priorityLabel(value)}
+              </option>
+            ))}
           </select>
         </label>
         <label>
-          Due
+          {t("Due")}
           <select value={filters.due} onChange={(event) => updateFilter("due", event.target.value)}>
-            <option value="">Any date</option>
-            <option value="overdue">Overdue</option>
-            <option value="today">Today</option>
-            <option value="upcoming">Upcoming</option>
+            <option value="">{t("Any date")}</option>
+            <option value="overdue">{t("Overdue")}</option>
+            <option value="today">{t("Today")}</option>
+            <option value="upcoming">{t("Upcoming")}</option>
           </select>
         </label>
       </section>
-      {loading ? <div className="loading-state">Loading Sales work queue...</div> : null}
+      {loading ? <div className="loading-state">{t("Loading Sales work queue...")}</div> : null}
       {error ? (
         <section className="error-state">
-          <h2>Sales queue unavailable</h2>
+          <h2>{t("Sales queue unavailable")}</h2>
           <p>{error}</p>
         </section>
       ) : null}

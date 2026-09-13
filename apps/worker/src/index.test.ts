@@ -565,7 +565,7 @@ describe("AI assistant and settings API", () => {
       meta: { cached: false },
       deterministic: { priority: { priorityLevel: "CRITICAL" } }
     });
-    expect(firstBody.data.assistance.priorityExplanation).toContain("expected reorder interval");
+    expect(firstBody.data.assistance.priorityExplanation).toContain("interval doobjednania");
 
     const second = await postJson(env, "/api/ai/customer-assistant", {
       customerId: "cus-006",

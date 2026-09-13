@@ -1,7 +1,15 @@
 import { useEffect, useState } from "react";
-import { formatLabel } from "../customers/formatting";
 import { fetchSettings, saveSettings } from "./api";
 import type { ConfigSetting, SettingsData } from "./types";
+import {
+  apiErrorMessage,
+  displayLabel,
+  formatDate,
+  kpiLabel,
+  settingDescription,
+  settingLabel,
+  t
+} from "../../i18n";
 
 export function SettingsPage({ canWrite = true }: { canWrite?: boolean }) {
   const [data, setData] = useState<SettingsData | null>(null);
@@ -12,17 +20,17 @@ export function SettingsPage({ canWrite = true }: { canWrite?: boolean }) {
     fetchSettings()
       .then(setData)
       .catch((error: unknown) =>
-        setError(error instanceof Error ? error.message : "Settings unavailable.")
+        setError(apiErrorMessage(error, "Nastavenia momentálne nie sú dostupné."))
       );
   }, []);
   if (error && !data)
     return (
       <div className="error-state">
-        <h2>Settings unavailable</h2>
+        <h2>{t("Settings unavailable")}</h2>
         <p>{error}</p>
       </div>
     );
-  if (!data) return <div className="loading-state">Loading business settings...</div>;
+  if (!data) return <div className="loading-state">{t("Loading business settings...")}</div>;
   const updateSetting = (section: keyof SettingsData["sections"], key: string, value: string) =>
     canWrite &&
     setData((current) =>
@@ -45,9 +53,9 @@ export function SettingsPage({ canWrite = true }: { canWrite?: boolean }) {
     setNotice(null);
     try {
       setData(await saveSettings(data));
-      setNotice("Business settings saved. Live deterministic rules will use the new values.");
+      setNotice(t("Business settings saved. Live deterministic rules will use the new values."));
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Settings could not be saved.");
+      setError(apiErrorMessage(error, "Nastavenia sa nepodarilo uložiť."));
     } finally {
       setSaving(false);
     }
@@ -56,31 +64,33 @@ export function SettingsPage({ canWrite = true }: { canWrite?: boolean }) {
     <section className="page-stack">
       <div className="page-heading">
         <div>
-          <p className="eyebrow">Configuration</p>
-          <h2>Business settings</h2>
+          <p className="eyebrow">{t("Configuration")}</p>
+          <h2>{t("Business settings")}</h2>
         </div>
         <p>
-          Allowlisted operational rules and targets. Secrets and account security are managed
-          elsewhere.
+          {t(
+            "Allowlisted operational rules and targets. Secrets and account security are managed elsewhere."
+          )}
         </p>
       </div>
       {notice ? <p className="success-notice">{notice}</p> : null}
       {error ? <p className="error-notice">{error}</p> : null}
       <SettingsSection
-        title="Customer Service"
+        title={t("Customer Service")}
         settings={data.sections.customerService}
         disabled={!canWrite}
         onChange={(key, value) => updateSetting("customerService", key, value)}
       />
       <section className="settings-section">
-        <h3>Sales</h3>
+        <h3>{t("Sales")}</h3>
         <p className="muted">
-          Sales workflow configuration uses structured visit and handoff rules. No additional
-          tunable values are approved yet.
+          {t(
+            "Sales workflow configuration uses structured visit and handoff rules. No additional tunable values are approved yet."
+          )}
         </p>
       </section>
       <SettingsSection
-        title="Business"
+        title={t("Business")}
         settings={data.sections.business}
         disabled={!canWrite}
         onChange={(key, value) => updateSetting("business", key, value)}
@@ -92,9 +102,9 @@ export function SettingsPage({ canWrite = true }: { canWrite?: boolean }) {
         onChange={(key, value) => updateSetting("ai", key, value)}
       >
         <p className="settings-availability">
-          Provider: {data.aiAvailability.provider} ·{" "}
-          {data.aiAvailability.configured ? "Available" : "Not configured"}. API secrets are never
-          displayed.
+          {t("Provider")}: {displayLabel(data.aiAvailability.provider)} ·{" "}
+          {data.aiAvailability.configured ? t("Available") : t("Not configured")}.{" "}
+          {t("API secrets are never displayed.")}
         </p>
       </SettingsSection>
       <section className="settings-section">
@@ -109,20 +119,20 @@ export function SettingsPage({ canWrite = true }: { canWrite?: boolean }) {
             <thead>
               <tr>
                 <th>KPI</th>
-                <th>Role</th>
-                <th>Target</th>
-                <th>Weight</th>
-                <th>Period</th>
+                <th>{t("Role")}</th>
+                <th>{t("Target")}</th>
+                <th>{t("Weight")}</th>
+                <th>{t("Period")}</th>
               </tr>
             </thead>
             <tbody>
               {data.kpi.targets.map((target) => (
                 <tr key={target.id}>
                   <td>
-                    {target.name}
+                    {kpiLabel(target.code, target.name)}
                     <span>{target.code}</span>
                   </td>
-                  <td>{formatLabel(target.role)}</td>
+                  <td>{displayLabel(target.role.toLocaleLowerCase("sk-SK"))}</td>
                   <td>
                     <input
                       type="number"
@@ -168,7 +178,7 @@ export function SettingsPage({ canWrite = true }: { canWrite?: boolean }) {
                     />
                   </td>
                   <td>
-                    {target.periodStart} – {target.periodEnd}
+                    {formatDate(target.periodStart)} – {formatDate(target.periodEnd)}
                   </td>
                 </tr>
               ))}
@@ -177,7 +187,7 @@ export function SettingsPage({ canWrite = true }: { canWrite?: boolean }) {
         </div>
         {data.kpi.companyTargets.map((target) => (
           <label key={target.id}>
-            Company {target.name} target
+            {t("Company {name} target", { name: kpiLabel(target.name, target.name) })}
             <input
               type="number"
               disabled={!canWrite}
@@ -203,10 +213,10 @@ export function SettingsPage({ canWrite = true }: { canWrite?: boolean }) {
       <div className="settings-actions">
         {canWrite ? (
           <button disabled={saving} onClick={() => void save()} type="button">
-            {saving ? "Saving..." : "Save settings"}
+            {saving ? t("Saving...") : t("Save settings")}
           </button>
         ) : (
-          <p className="muted">Read-only access</p>
+          <p className="muted">{t("Read-only access")}</p>
         )}
       </div>
     </section>
@@ -247,15 +257,15 @@ function SettingsFields({
     <div className="settings-grid">
       {settings.map((setting) => (
         <label key={setting.key}>
-          {formatLabel(setting.key.split(".").at(-1) ?? setting.key)}
+          {settingLabel(setting.key)}
           {setting.valueType === "boolean" ? (
             <select
               disabled={disabled}
               value={setting.value}
               onChange={(event) => onChange(setting.key, event.target.value)}
             >
-              <option value="true">Enabled</option>
-              <option value="false">Disabled</option>
+              <option value="true">{t("Enabled")}</option>
+              <option value="false">{t("Disabled")}</option>
             </select>
           ) : setting.key === "ai.provider" ? (
             <select
@@ -263,8 +273,20 @@ function SettingsFields({
               value={setting.value}
               onChange={(event) => onChange(setting.key, event.target.value)}
             >
-              <option value="MOCK">Mock</option>
+              <option value="MOCK">{displayLabel("MOCK")}</option>
               <option value="OPENAI">OpenAI</option>
+            </select>
+          ) : setting.key === "business.default_reporting_period" ? (
+            <select
+              disabled={disabled}
+              value={setting.value}
+              onChange={(event) => onChange(setting.key, event.target.value)}
+            >
+              {(["day", "week", "month"] as const).map((period) => (
+                <option key={period} value={period}>
+                  {displayLabel(period)}
+                </option>
+              ))}
             </select>
           ) : (
             <input
@@ -274,7 +296,7 @@ function SettingsFields({
               onChange={(event) => onChange(setting.key, event.target.value)}
             />
           )}
-          <small>{setting.description}</small>
+          <small>{settingDescription(setting.key)}</small>
         </label>
       ))}
     </div>

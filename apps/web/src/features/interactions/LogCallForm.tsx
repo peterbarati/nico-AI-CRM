@@ -12,6 +12,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { formatLabel } from "../customers/formatting";
 import { createCustomerCall, fetchSalesRepresentatives } from "./interaction-api";
 import type { CallWorkflowResult, SalesRepresentative } from "./interaction-types";
+import { apiErrorMessage, priorityLabel, t } from "../../i18n";
 
 interface LogCallFormProps {
   customerId: string;
@@ -61,9 +62,7 @@ export function LogCallForm({
       })
       .catch((unknownError: unknown) => {
         if (mounted) {
-          setError(
-            unknownError instanceof Error ? unknownError.message : "Sales users unavailable."
-          );
+          setError(apiErrorMessage(unknownError, "Obchodní zástupcovia nie sú dostupní."));
         }
       })
       .finally(() => {
@@ -99,7 +98,7 @@ export function LogCallForm({
       });
       onSuccess(result);
     } catch (unknownError) {
-      setError(unknownError instanceof Error ? unknownError.message : "Call could not be saved.");
+      setError(apiErrorMessage(unknownError, "Hovor sa nepodarilo uložiť."));
     } finally {
       setSaving(false);
     }
@@ -119,11 +118,11 @@ export function LogCallForm({
       >
         <div className="modal-header">
           <div>
-            <p className="eyebrow">Customer interaction</p>
-            <h2 id="log-call-title">Log call</h2>
+            <p className="eyebrow">{t("Customer interaction")}</p>
+            <h2 id="log-call-title">{t("Log call")}</h2>
           </div>
           <button
-            aria-label="Close"
+            aria-label={t("Close")}
             className="icon-button"
             disabled={saving}
             onClick={onCancel}
@@ -134,12 +133,12 @@ export function LogCallForm({
         </div>
         <form className="call-form" onSubmit={handleSubmit}>
           <label>
-            <span>Customer</span>
+            <span>{t("Customer")}</span>
             <input readOnly value={customerName} />
           </label>
           <div className="form-grid">
             <label>
-              <span>Call reason</span>
+              <span>{t("Call reason")}</span>
               <select
                 value={form.reason}
                 onChange={(event) => update("reason", event.target.value as CallReasonCode)}
@@ -152,7 +151,7 @@ export function LogCallForm({
               </select>
             </label>
             <label>
-              <span>Call result</span>
+              <span>{t("Call result")}</span>
               <select
                 value={form.result}
                 onChange={(event) => {
@@ -172,7 +171,7 @@ export function LogCallForm({
             </label>
           </div>
           <label>
-            <span>Notes</span>
+            <span>{t("Notes")}</span>
             <textarea
               maxLength={4000}
               onChange={(event) => update("notes", event.target.value)}
@@ -182,7 +181,7 @@ export function LogCallForm({
           </label>
           <div className="form-grid">
             <label>
-              <span>Next action</span>
+              <span>{t("Next action")}</span>
               <select
                 value={form.nextAction}
                 onChange={(event) => update("nextAction", event.target.value as CallNextActionCode)}
@@ -195,7 +194,7 @@ export function LogCallForm({
               </select>
             </label>
             <label>
-              <span>Task priority</span>
+              <span>{t("Task priority")}</span>
               <select
                 disabled={!createsTask}
                 value={form.priority}
@@ -203,7 +202,7 @@ export function LogCallForm({
               >
                 {taskPriorityCodes.map((code) => (
                   <option key={code} value={code}>
-                    {formatLabel(code)}
+                    {priorityLabel(code)}
                   </option>
                 ))}
               </select>
@@ -212,7 +211,7 @@ export function LogCallForm({
           {createsTask ? (
             <div className="form-grid">
               <label>
-                <span>Follow-up date/time</span>
+                <span>{t("Follow-up date/time")}</span>
                 <input
                   min={minimumFollowUp}
                   onChange={(event) => update("followUpAt", event.target.value)}
@@ -223,14 +222,14 @@ export function LogCallForm({
               </label>
               {isSalesHandoff ? (
                 <label>
-                  <span>Sales Representative</span>
+                  <span>{t("Sales Representative")}</span>
                   <select
                     disabled={loadingSalesReps}
                     onChange={(event) => update("salesRepUserId", event.target.value)}
                     required
                     value={form.salesRepUserId}
                   >
-                    <option value="">Select Sales Representative</option>
+                    <option value="">{t("Select Sales Representative")}</option>
                     {salesReps.map((user) => (
                       <option key={user.id} value={user.id}>
                         {user.name}
@@ -250,10 +249,10 @@ export function LogCallForm({
           ) : null}
           <div className="modal-actions">
             <button className="secondary-button" disabled={saving} onClick={onCancel} type="button">
-              Cancel
+              {t("Cancel")}
             </button>
             <button disabled={saving || loadingSalesReps} type="submit">
-              {saving ? "Saving..." : "Save call"}
+              {saving ? t("Saving...") : t("Save call")}
             </button>
           </div>
         </form>
