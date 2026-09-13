@@ -1,10 +1,5 @@
 import type { DashboardFilters, ManagementDashboard } from "./types";
-
-interface DashboardResponse {
-  ok: boolean;
-  data?: ManagementDashboard;
-  error?: { message?: string };
-}
+import { requestApiData } from "../../lib/api-client";
 
 export async function fetchManagementDashboard(
   filters: DashboardFilters
@@ -16,17 +11,19 @@ export async function fetchManagementDashboard(
   }
   if (filters.role) params.set("role", filters.role);
   if (filters.userId) params.set("userId", filters.userId);
-  const response = await fetch(`/api/dashboard?${params}`);
-  const contentType = response.headers.get("content-type") ?? "";
-  if (!contentType.includes("application/json")) {
-    throw new Error(`Dashboard API returned a non-JSON response (${response.status}).`);
-  }
-  const body = (await response.json()) as DashboardResponse;
-  if (!response.ok || !body.ok) {
-    throw new Error(body.error?.message ?? `Dashboard API request failed (${response.status}).`);
-  }
-  if (!body.data?.dashboard || !Array.isArray(body.data.users)) {
-    throw new Error("Dashboard API returned an unexpected success response.");
-  }
-  return body.data;
+  return requestApiData(`/api/dashboard?${params}`, undefined, isManagementDashboard);
+}
+
+function isManagementDashboard(value: unknown): value is ManagementDashboard {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "dashboard" in value &&
+    typeof value.dashboard === "object" &&
+    value.dashboard !== null &&
+    "users" in value &&
+    Array.isArray(value.users) &&
+    "roles" in value &&
+    Array.isArray(value.roles)
+  );
 }

@@ -11,11 +11,33 @@ const initialFilters: DashboardFilters = {
   userId: ""
 };
 
+export interface DashboardLoadState {
+  loading: false;
+  report: ManagementDashboard | null;
+  error: string | null;
+}
+
+export async function loadDashboard(
+  filters: DashboardFilters,
+  loader = fetchManagementDashboard
+): Promise<DashboardLoadState> {
+  try {
+    return { loading: false, report: await loader(filters), error: null };
+  } catch (error) {
+    return {
+      loading: false,
+      report: null,
+      error: error instanceof Error ? error.message : "Dashboard unavailable."
+    };
+  }
+}
+
 export function ManagementDashboardPage() {
   const [filters, setFilters] = useState(initialFilters);
   const [report, setReport] = useState<ManagementDashboard | null>(null);
   const [knownUsers, setKnownUsers] = useState<ManagementDashboard["users"]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const update = (key: keyof DashboardFilters, value: string) =>
     setFilters((current) => ({
       ...current,
@@ -24,19 +46,23 @@ export function ManagementDashboardPage() {
     }));
 
   useEffect(() => {
-    if (filters.period === "custom" && (!filters.from || !filters.to)) return;
+    if (filters.period === "custom" && (!filters.from || !filters.to)) {
+      setLoading(false);
+      setReport(null);
+      setError(null);
+      return;
+    }
     let mounted = true;
+    setLoading(true);
+    setReport(null);
     setError(null);
-    fetchManagementDashboard(filters)
-      .then((data) => {
-        if (!mounted) return;
-        setReport(data);
-        if (!filters.role && !filters.userId) setKnownUsers(data.users);
-      })
-      .catch(
-        (error: unknown) =>
-          mounted && setError(error instanceof Error ? error.message : "Dashboard unavailable.")
-      );
+    void loadDashboard(filters).then((state) => {
+      if (!mounted) return;
+      setLoading(state.loading);
+      setError(state.error);
+      setReport(state.report);
+      if (state.report && !filters.role && !filters.userId) setKnownUsers(state.report.users);
+    });
     return () => {
       mounted = false;
     };
@@ -103,12 +129,22 @@ export function ManagementDashboardPage() {
           </select>
         </label>
       </section>
-      {error ? <div className="error-state">{error}</div> : null}
-      {report ? (
-        <ManagementDashboardView report={report} />
-      ) : (
-        <div className="loading-state">Loading management dashboard...</div>
-      )}
+      <DashboardContent loading={loading} error={error} report={report} />
     </section>
   );
+}
+
+export function DashboardContent({
+  loading,
+  error,
+  report
+}: {
+  loading: boolean;
+  error: string | null;
+  report: ManagementDashboard | null;
+}) {
+  if (loading) return <div className="loading-state">Loading management dashboard...</div>;
+  if (error) return <div className="error-state">{error}</div>;
+  if (report) return <ManagementDashboardView report={report} />;
+  return <div className="empty-state">Select a complete date range to load the dashboard.</div>;
 }

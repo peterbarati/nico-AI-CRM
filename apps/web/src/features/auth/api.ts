@@ -1,7 +1,7 @@
 import type { AuthConfiguration, CurrentActor, MockUser } from "./types";
 import { AuthApiError } from "./types";
-import type { ApiResponse } from "@nico-ai-crm/shared";
 import { permissions, type Permission, type UserRole } from "@nico-ai-crm/auth";
+import { ApiClientError, requestApiData } from "../../lib/api-client";
 
 const userRoles = new Set<UserRole>(["admin", "manager", "customer_service", "sales_rep"]);
 
@@ -38,54 +38,18 @@ async function request<T>(
   init: RequestInit | undefined,
   validate: (value: unknown) => value is T
 ): Promise<T> {
-  let response: Response;
   try {
-    response = await fetch(path, init);
-  } catch {
-    throw serviceUnavailable();
+    return await requestApiData(path, init, validate);
+  } catch (error) {
+    if (!(error instanceof ApiClientError)) throw error;
+    if (error.code === "API_UNAVAILABLE") throw serviceUnavailable(error.status);
+    if (error.code === "INVALID_API_RESPONSE") throw invalidResponse(error.status);
+    throw new AuthApiError(error.code, error.message, error.status);
   }
-
-  if (!response.headers.get("content-type")?.toLowerCase().includes("application/json")) {
-    throw response.status >= 500
-      ? serviceUnavailable(response.status)
-      : invalidResponse(response.status);
-  }
-
-  let body: unknown;
-  try {
-    body = await response.json();
-  } catch {
-    throw response.status >= 500
-      ? serviceUnavailable(response.status)
-      : invalidResponse(response.status);
-  }
-
-  if (isErrorResponse(body)) {
-    throw new AuthApiError(body.error.code, body.error.message, response.status);
-  }
-
-  if (!response.ok || !isSuccessResponse(body) || !validate(body.data)) {
-    throw invalidResponse(response.status);
-  }
-  return body.data;
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
-}
-
-function isSuccessResponse(value: unknown): value is ApiResponse<unknown> & { ok: true } {
-  return isObject(value) && value.ok === true && "data" in value;
-}
-
-function isErrorResponse(value: unknown): value is ApiResponse<never> & { ok: false } {
-  return (
-    isObject(value) &&
-    value.ok === false &&
-    isObject(value.error) &&
-    typeof value.error.code === "string" &&
-    typeof value.error.message === "string"
-  );
 }
 
 function isAuthConfiguration(value: unknown): value is AuthConfiguration {

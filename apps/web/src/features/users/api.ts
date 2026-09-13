@@ -1,11 +1,6 @@
-import type {
-  UserAdminItem,
-  UserAdminValues,
-  UserApiErrorBody,
-  UserListFilters,
-  UserListResult
-} from "./types";
+import type { UserAdminItem, UserAdminValues, UserListFilters, UserListResult } from "./types";
 import { UserApiError } from "./types";
+import { ApiClientError, requestApiData } from "../../lib/api-client";
 
 export async function fetchUsers(filters: UserListFilters): Promise<UserListResult> {
   const query = new URLSearchParams({
@@ -49,48 +44,19 @@ async function request<T>(
   init: RequestInit | undefined,
   validate: (value: unknown) => value is T
 ): Promise<T> {
-  let response: Response;
   try {
-    response = await fetch(path, init);
-  } catch {
+    return await requestApiData(path, init, validate);
+  } catch (error) {
+    if (!(error instanceof ApiClientError)) throw error;
     throw new UserApiError(
-      { code: "USER_SERVICE_UNAVAILABLE", message: "User management is unavailable." },
-      0
+      { code: error.code, message: error.message, fields: error.fields },
+      error.status
     );
   }
-  let body: unknown;
-  try {
-    body = await response.json();
-  } catch {
-    throw new UserApiError(
-      { code: "INVALID_RESPONSE", message: "User management returned invalid data." },
-      response.status
-    );
-  }
-  if (isErrorEnvelope(body)) throw new UserApiError(body.error, response.status);
-  if (!response.ok || !isSuccessEnvelope(body) || !validate(body.data)) {
-    throw new UserApiError(
-      { code: "INVALID_RESPONSE", message: "User management returned invalid data." },
-      response.status
-    );
-  }
-  return body.data;
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
-}
-function isSuccessEnvelope(value: unknown): value is { ok: true; data: unknown } {
-  return isObject(value) && value.ok === true && "data" in value;
-}
-function isErrorEnvelope(value: unknown): value is { ok: false; error: UserApiErrorBody } {
-  return (
-    isObject(value) &&
-    value.ok === false &&
-    isObject(value.error) &&
-    typeof value.error.code === "string" &&
-    typeof value.error.message === "string"
-  );
 }
 function isUserListResult(value: unknown): value is UserListResult {
   const pagination = isObject(value) ? value.pagination : null;

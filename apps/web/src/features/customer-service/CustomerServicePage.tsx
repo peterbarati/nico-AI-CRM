@@ -16,6 +16,22 @@ interface CustomerServicePageProps {
   onNavigate: (path: string) => void;
 }
 
+export async function loadCustomerServiceQueue(loader = fetchCustomerServiceQueue): Promise<{
+  loading: false;
+  data: CustomerServiceQueueResponse["data"] | null;
+  error: string | null;
+}> {
+  try {
+    return { loading: false, data: await loader(), error: null };
+  } catch (error) {
+    return {
+      loading: false,
+      data: null,
+      error: error instanceof Error ? error.message : "Customer Service queue unavailable"
+    };
+  }
+}
+
 export function CustomerServicePage({ onNavigate }: CustomerServicePageProps) {
   const [items, setItems] = useState<CustomerServiceQueueItem[]>([]);
   const [summary, setSummary] = useState<CustomerServiceSummary | null>(null);
@@ -29,18 +45,19 @@ export function CustomerServicePage({ onNavigate }: CustomerServicePageProps) {
   const loadQueue = useCallback(async () => {
     setLoading(true);
     setError(null);
-    try {
-      const data = await fetchCustomerServiceQueue();
+    const state = await loadCustomerServiceQueue();
+    if (state.data) {
+      const data = state.data;
       setItems(data.items);
       setSummary(data.summary);
       setMeta(data.meta);
-    } catch (unknownError) {
-      setError(
-        unknownError instanceof Error ? unknownError.message : "Customer Service queue unavailable"
-      );
-    } finally {
-      setLoading(false);
+    } else {
+      setItems([]);
+      setSummary(null);
+      setMeta(null);
     }
+    setError(state.error);
+    setLoading(state.loading);
   }, []);
 
   useEffect(() => {
@@ -73,9 +90,11 @@ export function CustomerServicePage({ onNavigate }: CustomerServicePageProps) {
         </p>
       </div>
       {notice ? <p className="success-notice">{notice}</p> : null}
-      {loading ? <div className="loading-state">Loading Customer Service queue...</div> : null}
-      {error ? <CustomerServiceErrorState message={error} /> : null}
-      {!loading && !error && summary ? (
+      {loading ? (
+        <div className="loading-state">Loading Customer Service queue...</div>
+      ) : error ? (
+        <CustomerServiceErrorState message={error} />
+      ) : summary ? (
         <>
           <CustomerServiceSummaryCards summary={summary} />
           {meta ? (

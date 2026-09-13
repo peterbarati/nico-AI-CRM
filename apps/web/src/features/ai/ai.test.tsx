@@ -95,10 +95,16 @@ describe("commercial assistant frontend", () => {
         })
       )
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ ok: false, error: { message: "AI unavailable" } }), {
-          status: 503,
-          headers: { "content-type": "application/json" }
-        })
+        new Response(
+          JSON.stringify({
+            ok: false,
+            error: { code: "AI_PROVIDER_UNAVAILABLE", message: "AI unavailable" }
+          }),
+          {
+            status: 503,
+            headers: { "content-type": "application/json" }
+          }
+        )
       );
     vi.stubGlobal("fetch", fetcher);
     await expect(prepareCustomerAssistant("cus-1")).resolves.toMatchObject({ status: "DISABLED" });

@@ -655,6 +655,24 @@ describe("AI assistant and settings API", () => {
 });
 
 describe("authentication and authorization", () => {
+  it("allows Admin and Manager access to management and operational visibility endpoints", async () => {
+    const env = createTestEnv();
+    const checks = await Promise.all([
+      application.fetch(actorRequest("/api/customer-service/queue", "usr-admin-001"), env),
+      application.fetch(actorRequest("/api/dashboard?period=month", "usr-admin-001"), env),
+      application.fetch(actorRequest("/api/kpi?period=month", "usr-admin-001"), env),
+      application.fetch(actorRequest("/api/dashboard?period=month", "usr-manager-001"), env),
+      application.fetch(actorRequest("/api/kpi?period=month", "usr-manager-001"), env),
+      application.fetch(actorRequest("/api/reports/activity?period=month", "usr-manager-001"), env),
+      application.fetch(actorRequest("/api/customer-service/queue", "usr-manager-001"), env)
+    ]);
+    expect(checks.map((response) => response.status)).toEqual([200, 200, 200, 200, 200, 200, 200]);
+    for (const response of checks) {
+      expect(response.headers.get("content-type")).toContain("application/json");
+      expect(await response.json()).toMatchObject({ ok: true });
+    }
+  });
+
   it("returns shared success contracts for mock auth bootstrap endpoints", async () => {
     const env = createTestEnv();
     const config = await application.fetch(new Request("http://localhost/api/auth/config"), env);

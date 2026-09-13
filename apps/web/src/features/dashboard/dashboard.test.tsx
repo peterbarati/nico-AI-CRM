@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchManagementDashboard } from "./api";
+import { DashboardContent, loadDashboard } from "./ManagementDashboardPage";
 import { ManagementDashboardView } from "./ManagementDashboardView";
 import type { ManagementDashboard } from "./types";
 
@@ -88,10 +89,13 @@ describe("management dashboard frontend", () => {
         })
       )
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ ok: false, error: { message: "Invalid period." } }), {
-          status: 400,
-          headers: { "content-type": "application/json" }
-        })
+        new Response(
+          JSON.stringify({
+            ok: false,
+            error: { code: "BAD_REQUEST", message: "Invalid period." }
+          }),
+          { status: 400, headers: { "content-type": "application/json" } }
+        )
       );
     vi.stubGlobal("fetch", fetchMock);
     await expect(
@@ -100,5 +104,22 @@ describe("management dashboard frontend", () => {
     await expect(
       fetchManagementDashboard({ period: "custom", from: "bad", to: "bad", role: "", userId: "" })
     ).rejects.toThrow("Invalid period.");
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ credentials: "same-origin" });
+  });
+
+  it("finishes loading and renders one terminal state on success or failure", async () => {
+    const filters = { period: "month", from: "", to: "", role: "", userId: "" } as const;
+    await expect(loadDashboard(filters, async () => report)).resolves.toEqual({
+      loading: false,
+      report,
+      error: null
+    });
+    const failed = await loadDashboard(filters, async () => {
+      throw new Error("Dashboard unavailable.");
+    });
+    expect(failed).toEqual({ loading: false, report: null, error: "Dashboard unavailable." });
+    const markup = renderToStaticMarkup(<DashboardContent {...failed} />);
+    expect(markup.match(/Dashboard unavailable\./g)).toHaveLength(1);
+    expect(markup).not.toContain("Loading management dashboard");
   });
 });

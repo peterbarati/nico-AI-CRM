@@ -1,26 +1,21 @@
 import type { CustomerServiceQueueResponse } from "./types";
+import { requestApiData } from "../../lib/api-client";
 
 export async function fetchCustomerServiceQueue(): Promise<CustomerServiceQueueResponse["data"]> {
-  const response = await fetch("/api/customer-service/queue");
-  const body = (await response.json()) as unknown;
-  const apiError = getApiError(body);
-
-  if (!response.ok || apiError) {
-    throw new Error(apiError ?? `API returned ${response.status}`);
-  }
-
-  return (body as CustomerServiceQueueResponse).data;
+  return requestApiData("/api/customer-service/queue", undefined, isQueueData);
 }
 
-function getApiError(body: unknown): string | null {
-  if (!body || typeof body !== "object" || !("ok" in body) || body.ok !== false) {
-    return null;
-  }
-
-  const error = "error" in body ? body.error : null;
-  if (!error || typeof error !== "object" || !("message" in error)) {
-    return null;
-  }
-
-  return typeof error.message === "string" ? error.message : null;
+function isQueueData(value: unknown): value is CustomerServiceQueueResponse["data"] {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "items" in value &&
+    Array.isArray(value.items) &&
+    "summary" in value &&
+    typeof value.summary === "object" &&
+    value.summary !== null &&
+    "meta" in value &&
+    typeof value.meta === "object" &&
+    value.meta !== null
+  );
 }

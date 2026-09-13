@@ -5,6 +5,7 @@ import type {
   SalesTaskPage,
   SalesVisitWriteResult
 } from "./types";
+import { requestApiData, requestApiEnvelope } from "../../lib/api-client";
 
 export async function fetchSalesTasks(filters: SalesTaskFilters): Promise<SalesTaskPage> {
   const params = new URLSearchParams({
@@ -14,20 +15,16 @@ export async function fetchSalesTasks(filters: SalesTaskFilters): Promise<SalesT
   for (const key of ["assignedUserId", "status", "priority", "due"] as const) {
     if (filters[key]) params.set(key, filters[key]);
   }
-  const body = await request<{
-    ok: true;
-    data: SalesTaskPage["items"];
-    pagination: SalesTaskPage["pagination"];
-  }>(`/api/sales/tasks?${params}`);
-  return { items: body.data, pagination: body.pagination };
+  const body = await requestApiEnvelope<SalesTaskPage["items"]>(`/api/sales/tasks?${params}`);
+  return { items: body.data, pagination: body.pagination as SalesTaskPage["pagination"] };
 }
 
 export async function fetchSalesTaskDetail(taskId: string): Promise<SalesTaskDetail> {
-  return (await request<{ ok: true; data: SalesTaskDetail }>(`/api/sales/tasks/${taskId}`)).data;
+  return requestApiData(`/api/sales/tasks/${taskId}`);
 }
 
 export async function fetchSalesUsers(): Promise<UserReference[]> {
-  return (await request<{ ok: true; data: UserReference[] }>("/api/users?role=sales_rep")).data;
+  return requestApiData("/api/users?role=sales_rep");
 }
 
 export async function scheduleVisit(taskId: string, input: unknown) {
@@ -41,19 +38,9 @@ export async function completeVisit(visitId: string, input: unknown) {
 }
 
 async function post(path: string, input: unknown): Promise<SalesVisitWriteResult> {
-  return (
-    await request<{ ok: true; data: SalesVisitWriteResult }>(path, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(input)
-    })
-  ).data;
-}
-
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, init);
-  const body = (await response.json()) as T | { ok: false; error: { message: string } };
-  if (!response.ok || !(body as { ok: boolean }).ok)
-    throw new Error((body as { error?: { message: string } }).error?.message ?? "Request failed.");
-  return body as T;
+  return requestApiData(path, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input)
+  });
 }

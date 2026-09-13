@@ -51,7 +51,10 @@ describe("call workflow frontend", () => {
       .fn()
       .mockResolvedValueOnce(
         new Response(
-          JSON.stringify({ ok: false, error: { message: "Selected user is invalid." } }),
+          JSON.stringify({
+            ok: false,
+            error: { code: "INVALID_ASSIGNEE", message: "Selected user is invalid." }
+          }),
           { status: 422, headers: { "content-type": "application/json" } }
         )
       )
@@ -149,9 +152,11 @@ describe("call workflow frontend", () => {
       result: "RESOLVED" as const
     };
 
-    await expect(createCustomerCall("cus-002", request)).rejects.toThrow("non-JSON response (500)");
     await expect(createCustomerCall("cus-002", request)).rejects.toThrow(
-      "unexpected success response"
+      "The CRM service is temporarily unavailable."
+    );
+    await expect(createCustomerCall("cus-002", request)).rejects.toThrow(
+      "The CRM service returned an invalid response."
     );
   });
 

@@ -1,5 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { fetchCustomerServiceQueue } from "./api";
+import { loadCustomerServiceQueue } from "./CustomerServicePage";
 import { CustomerServiceErrorState } from "./CustomerServiceErrorState";
 import { CustomerServiceQueueTable } from "./CustomerServiceQueueTable";
 import { CustomerServiceSummaryCards } from "./CustomerServiceSummaryCards";
@@ -75,6 +77,8 @@ const queueItem: CustomerServiceQueueItem = {
   turnover90d: 410
 };
 
+afterEach(() => vi.unstubAllGlobals());
+
 describe("customer service frontend rendering", () => {
   it("renders daily target and queue priority information", () => {
     const summaryMarkup = renderToStaticMarkup(<CustomerServiceSummaryCards summary={summary} />);
@@ -113,5 +117,53 @@ describe("customer service frontend rendering", () => {
 
     expect(markup).toContain("Customer Service API error");
     expect(markup).toContain("Queue unavailable");
+    expect(markup.match(/Queue unavailable/g)).toHaveLength(1);
+  });
+
+  it("loads the authenticated queue through the shared API client", async () => {
+    const data = {
+      items: [queueItem],
+      summary,
+      meta: {
+        generatedAt: "2026-09-13T10:00:00.000Z",
+        limit: 20,
+        evaluatedCandidates: 1,
+        returned: 1
+      }
+    };
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ ok: true, data }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(fetchCustomerServiceQueue()).resolves.toEqual(data);
+    expect(fetchMock).toHaveBeenCalledWith("/api/customer-service/queue", {
+      credentials: "same-origin"
+    });
+  });
+
+  it("clears loading on success and failure", async () => {
+    const data = {
+      items: [queueItem],
+      summary,
+      meta: {
+        generatedAt: "2026-09-13T10:00:00.000Z",
+        limit: 20,
+        evaluatedCandidates: 1,
+        returned: 1
+      }
+    };
+    await expect(loadCustomerServiceQueue(async () => data)).resolves.toEqual({
+      loading: false,
+      data,
+      error: null
+    });
+    await expect(
+      loadCustomerServiceQueue(async () => {
+        throw new Error("Queue unavailable");
+      })
+    ).resolves.toEqual({ loading: false, data: null, error: "Queue unavailable" });
   });
 });
