@@ -26,7 +26,6 @@ import {
   getCachedAssistantRun,
   getCustomerAssistantSupplement,
   isCustomerAssignedToUser,
-  listAuthUsers,
   getManagementKpiData,
   recordAssistantRun,
   getSalesTaskQueueItem,
@@ -83,6 +82,7 @@ import {
 } from "./auth";
 import { authErrorResponse, handlePublicAuthRoute, safeActorResponse } from "./auth-routes";
 import { getSettingsData, validateAndUpdateSettings } from "./settings";
+import { handleUserManagementRoute } from "./user-management";
 
 export interface Env {
   DB: D1Database;
@@ -222,6 +222,9 @@ function isSortDirection(value: string | null): value is SortDirection {
 }
 
 function getRequiredPermission(request: Request, pathname: string): Permission | null {
+  if (pathname === "/api/admin/users" || pathname.startsWith("/api/admin/users/")) {
+    return "USER_ADMIN";
+  }
   if (request.method === "POST" && /^\/api\/customers\/[^/]+\/interactions$/.test(pathname)) {
     return "CUSTOMER_INTERACTIONS_WRITE";
   }
@@ -241,7 +244,6 @@ function getRequiredPermission(request: Request, pathname: string): Permission |
   if (pathname === "/api/kpi" || pathname.startsWith("/api/kpi/")) return "KPI_READ";
   if (pathname === "/api/tasks") return "TASKS_READ";
   if (pathname === "/api/users") return "USER_REFERENCES_READ";
-  if (pathname === "/api/admin/users") return "USER_ADMIN";
   if (
     pathname === "/api/customers" ||
     pathname.startsWith("/api/customers/") ||
@@ -305,6 +307,15 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
     if (error instanceof AuthRequestError) return authErrorResponse(error);
     throw error;
   }
+
+  const userManagementResponse = await handleUserManagementRoute(
+    request,
+    context,
+    actor,
+    url,
+    env.AUTH_MODE
+  );
+  if (userManagementResponse) return userManagementResponse;
 
   if (url.pathname === "/api/ai/customer-assistant" && request.method === "POST") {
     return handleCustomerAssistant(request, env, context, actor);
@@ -451,20 +462,6 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
     }
     const users = await listActiveUsersByRole(context, role);
     return ok(actor.role === "sales_rep" ? users.filter((user) => user.id === actor.id) : users);
-  }
-
-  if (url.pathname === "/api/admin/users") {
-    return ok(
-      (await listAuthUsers(context)).map((user) => ({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        active: user.active,
-        authProvider: user.authProvider,
-        identityMapped: Boolean(user.authProvider && user.authSubject)
-      }))
-    );
   }
 
   if (url.pathname === "/api/settings") {

@@ -10,7 +10,8 @@ const migrationSql = [
   "0003_sales_workflow_links.sql",
   "0004_deterministic_kpi_foundation.sql",
   "0005_ai_assistant_foundation.sql",
-  "0006_auth_foundation.sql"
+  "0006_auth_foundation.sql",
+  "0007_user_management.sql"
 ]
   .map((file) => readFileSync(join(root, "migrations", file), "utf8"))
   .join("\n");
@@ -55,6 +56,7 @@ assert.deepEqual(tables, [
   "sync_runs",
   "system_config",
   "tasks",
+  "user_management_audit",
   "users"
 ]);
 
@@ -153,7 +155,7 @@ console.log(
   JSON.stringify({
     tables: tables.length,
     customers: 20,
-    users: 8,
+    users: 9,
     segments: 9,
     page,
     search,

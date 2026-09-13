@@ -82,6 +82,7 @@ apps/
   web/       Frontend application
   worker/    Cloudflare Worker API
 packages/
+  auth/      Authentication provider and authorization contracts
   db/        D1 schema and database access boundary
   shared/    Shared domain types, DTOs, and constants
   erp-contract/
@@ -100,6 +101,10 @@ Expected dependency direction:
 - `apps/web` calls API endpoints and must not import backend-only database or provider implementation code.
 
 Avoid circular dependencies between packages.
+
+User administration follows the same boundaries: the Worker enforces `USER_ADMIN`,
+`packages/db` owns typed user writes and audit records, and the frontend consumes only the API.
+Users are deactivated rather than deleted so operational history remains attributable.
 
 ## Required Domain Boundaries
 

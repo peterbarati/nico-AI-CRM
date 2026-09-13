@@ -91,6 +91,9 @@ Authentication and role-based access rules are documented in
 [`docs/authentication.md`](docs/authentication.md) and
 [`docs/authorization.md`](docs/authorization.md).
 
+Admin-only account lifecycle and identity mapping are documented in
+[`docs/user-management.md`](docs/user-management.md).
+
 ## Quality Checks
 
 ```bash

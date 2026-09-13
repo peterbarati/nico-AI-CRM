@@ -113,6 +113,12 @@ No ERP connection exists in Phase 1. The table prepares for future incremental, 
 - Sales visits reference sales representative users.
 - Campaign memberships may reference a conversion order.
 
+## User Management Audit
+
+`user_management_audit` records the actor, target user, action, and timestamp for user creation,
+editing, activation, and deactivation. User lifecycle management never hard-deletes a user;
+historical foreign-key relationships remain intact.
+
 ## Indexes
 
 The first migration creates indexes for common CRM reads:

@@ -198,6 +198,14 @@ h3 {
   padding: 14px;
 }
 
+.users-filter-panel {
+  grid-template-columns: minmax(220px, 1.5fr) repeat(4, minmax(130px, 1fr));
+}
+
+.users-table {
+  min-width: 1180px;
+}
+
 label {
   display: grid;
   gap: 6px;
@@ -760,6 +768,27 @@ textarea {
   display: grid;
   gap: 14px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.user-form {
+  display: grid;
+  gap: 16px;
+}
+
+.checkbox-field {
+  align-content: end;
+  display: flex;
+  gap: 8px;
+  min-height: 36px;
+}
+
+.checkbox-field input {
+  min-height: 18px;
+  width: 18px;
+}
+
+.checkbox-field span {
+  align-self: center;
 }
 
 .modal-actions {

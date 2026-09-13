@@ -75,6 +75,9 @@ class TestD1Database {
       this.database.exec(
         readFileSync(join(process.cwd(), "migrations/0006_auth_foundation.sql"), "utf8")
       );
+      this.database.exec(
+        readFileSync(join(process.cwd(), "migrations/0007_user_management.sql"), "utf8")
+      );
     }
     const seed = readFileSync(join(process.cwd(), "packages/db/seeds/demo.sql"), "utf8");
     this.database.exec(
@@ -809,6 +812,179 @@ describe("authentication and authorization", () => {
   });
 });
 
+describe("admin user management API", () => {
+  it("lists users with pagination, search, role, status, and sorting", async () => {
+    const env = createTestEnv();
+    const response = await application.fetch(
+      actorRequest(
+        "/api/admin/users?page=1&pageSize=2&search=sales&role=sales_rep&active=true&sort=email&direction=desc",
+        "usr-admin-001"
+      ),
+      env
+    );
+    const body = (await response.json()) as {
+      data: { items: Array<{ role: string; active: boolean }>; pagination: { pageSize: number } };
+    };
+    expect(response.status).toBe(200);
+    expect(body.data.pagination.pageSize).toBe(2);
+    expect(body.data.items.length).toBeLessThanOrEqual(2);
+    expect(body.data.items.every((user) => user.role === "sales_rep" && user.active)).toBe(true);
+  });
+
+  it("creates, edits, deactivates, reactivates, audits, and mock-authenticates a user", async () => {
+    const env = createTestEnv();
+    const created = await adminJsonRequest(env, "/api/admin/users", "POST", {
+      name: "Development Sales",
+      email: "development.sales@example.test",
+      role: "sales_rep",
+      active: true,
+      authProvider: null,
+      authSubject: null
+    });
+    const createdBody = (await created.json()) as { data: { id: string; authSubject: string } };
+    const userId = createdBody.data.id;
+    expect(created.status).toBe(201);
+    expect(createdBody.data.authSubject).toBe(userId);
+
+    const edited = await adminJsonRequest(env, `/api/admin/users/${userId}`, "PATCH", {
+      name: "Development Manager",
+      email: "development.manager@example.test",
+      role: "manager",
+      active: true,
+      authProvider: "mock",
+      authSubject: userId
+    });
+    expect(await edited.json()).toMatchObject({
+      data: { name: "Development Manager", role: "manager" }
+    });
+
+    const deactivated = await adminJsonRequest(
+      env,
+      `/api/admin/users/${userId}/deactivate`,
+      "POST"
+    );
+    const inactiveAuth = await application.fetch(actorRequest("/api/auth/me", userId), env);
+    const reactivated = await adminJsonRequest(env, `/api/admin/users/${userId}/activate`, "POST");
+    const login = await application.fetch(
+      new Request("http://localhost/api/auth/mock-login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ userId })
+      }),
+      env
+    );
+    const mockUsers = await application.fetch(
+      new Request("http://localhost/api/auth/mock-users"),
+      env
+    );
+    const mockUsersBody = (await mockUsers.json()) as { data: Array<{ id: string }> };
+    const audit = await env.DB.prepare(
+      "SELECT COUNT(*) AS total FROM user_management_audit WHERE target_user_id = ?"
+    )
+      .bind(userId)
+      .first<{ total: number }>();
+    expect(deactivated.status).toBe(200);
+    expect(inactiveAuth.status).toBe(403);
+    expect(await reactivated.json()).toMatchObject({ data: { active: true } });
+    expect(login.status).toBe(200);
+    expect(mockUsersBody.data).toContainEqual(expect.objectContaining({ id: userId }));
+    expect(audit?.total).toBe(4);
+  });
+
+  it("rejects invalid and duplicate user identity data", async () => {
+    const env = createTestEnv();
+    const invalid = await adminJsonRequest(env, "/api/admin/users", "POST", {
+      name: "Invalid Role",
+      email: "invalid@example.test",
+      role: "owner",
+      active: true,
+      authProvider: null,
+      authSubject: null
+    });
+    const duplicateEmail = await adminJsonRequest(env, "/api/admin/users", "POST", {
+      name: "Duplicate Email",
+      email: "NINA.CONTROLLER@example.test",
+      role: "manager",
+      active: true,
+      authProvider: null,
+      authSubject: null
+    });
+    const duplicateIdentity = await adminJsonRequest(env, "/api/admin/users", "POST", {
+      name: "Duplicate Identity",
+      email: "identity.duplicate@example.test",
+      role: "manager",
+      active: true,
+      authProvider: "mock",
+      authSubject: "usr-manager-001"
+    });
+    expect(invalid.status).toBe(400);
+    expect(await invalid.json()).toMatchObject({ error: { code: "INVALID_ROLE" } });
+    expect(duplicateEmail.status).toBe(409);
+    expect(await duplicateEmail.json()).toMatchObject({ error: { code: "EMAIL_ALREADY_EXISTS" } });
+    expect(duplicateIdentity.status).toBe(409);
+    expect(await duplicateIdentity.json()).toMatchObject({
+      error: { code: "IDENTITY_ALREADY_MAPPED" }
+    });
+  });
+
+  it("protects the last active Admin and denies every non-admin write", async () => {
+    const env = createTestEnv();
+    const demotion = await adminJsonRequest(env, "/api/admin/users/usr-admin-001", "PATCH", {
+      name: "Nina Controller",
+      email: "nina.controller@example.test",
+      role: "manager",
+      active: true,
+      authProvider: "mock",
+      authSubject: "usr-admin-001"
+    });
+    const deactivation = await adminJsonRequest(
+      env,
+      "/api/admin/users/usr-admin-001/deactivate",
+      "POST"
+    );
+    const managerWrite = await application.fetch(
+      actorRequest("/api/admin/users/usr-sales-001/deactivate", "usr-manager-001", {
+        method: "POST"
+      }),
+      env
+    );
+    expect(demotion.status).toBe(409);
+    expect(await demotion.json()).toMatchObject({ error: { code: "LAST_ADMIN_PROTECTED" } });
+    expect(deactivation.status).toBe(409);
+    expect(managerWrite.status).toBe(403);
+  });
+
+  it("preserves CRM history when an operational user is deactivated", async () => {
+    const env = createTestEnv();
+    const before = await historyCounts(env);
+    await adminJsonRequest(env, "/api/admin/users/usr-cs-001/deactivate", "POST");
+    await adminJsonRequest(env, "/api/admin/users/usr-sales-001/deactivate", "POST");
+    const after = await historyCounts(env);
+    const history = await application.fetch(
+      actorRequest("/api/customers/cus-002/interactions", "usr-admin-001"),
+      env
+    );
+    expect(after).toEqual(before);
+    expect(history.status).toBe(200);
+  });
+
+  it("returns changed role permissions from auth/me after revalidation", async () => {
+    const env = createTestEnv();
+    await adminJsonRequest(env, "/api/admin/users/usr-manager-001", "PATCH", {
+      name: "Martin Manager",
+      email: "martin.manager@example.test",
+      role: "admin",
+      active: true,
+      authProvider: "mock",
+      authSubject: "usr-manager-001"
+    });
+    const me = await application.fetch(actorRequest("/api/auth/me", "usr-manager-001"), env);
+    expect(await me.json()).toMatchObject({
+      data: { role: "admin", permissions: expect.arrayContaining(["USER_ADMIN"]) }
+    });
+  });
+});
+
 function postCall(env: Env, customerId: string, body: unknown): Promise<Response> {
   return worker.fetch(
     new Request(`http://localhost/api/customers/${customerId}/interactions`, {
@@ -824,6 +1000,42 @@ function actorRequest(path: string, userId: string, init?: RequestInit): Request
   const headers = new Headers(init?.headers);
   headers.set("x-mock-user-id", userId);
   return new Request(`http://localhost${path}`, { ...init, headers });
+}
+
+function adminJsonRequest(env: Env, path: string, method: "POST" | "PATCH", body?: unknown) {
+  return application.fetch(
+    actorRequest(path, "usr-admin-001", {
+      method,
+      headers: body === undefined ? undefined : { "content-type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body)
+    }),
+    env
+  );
+}
+
+async function historyCounts(env: Env) {
+  return {
+    interactions: (
+      await env.DB.prepare(
+        "SELECT COUNT(*) AS total FROM customer_interactions WHERE user_id = 'usr-cs-001'"
+      ).first<{ total: number }>()
+    )?.total,
+    tasks: (
+      await env.DB.prepare(
+        "SELECT COUNT(*) AS total FROM tasks WHERE assigned_user_id = 'usr-cs-001' OR created_by_user_id = 'usr-cs-001'"
+      ).first<{ total: number }>()
+    )?.total,
+    visits: (
+      await env.DB.prepare(
+        "SELECT COUNT(*) AS total FROM sales_visits WHERE sales_rep_id = 'usr-sales-001'"
+      ).first<{ total: number }>()
+    )?.total,
+    assignedCustomers: (
+      await env.DB.prepare(
+        "SELECT COUNT(*) AS total FROM customers WHERE assigned_sales_rep_id = 'usr-sales-001'"
+      ).first<{ total: number }>()
+    )?.total
+  };
 }
 
 function postJson(env: Env, path: string, body: unknown): Promise<Response> {
