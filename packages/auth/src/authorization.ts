@@ -25,6 +25,7 @@ export const rolePermissions: Record<UserRole, readonly Permission[]> = {
     "CUSTOMER_SERVICE_QUEUE_READ",
     "SALES_QUEUE_READ",
     "TASKS_READ",
+    "TASK_WRITE",
     "DASHBOARD_READ",
     "REPORTS_READ",
     "KPI_READ",

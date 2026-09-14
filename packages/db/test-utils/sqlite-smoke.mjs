@@ -11,7 +11,8 @@ const migrationSql = [
   "0004_deterministic_kpi_foundation.sql",
   "0005_ai_assistant_foundation.sql",
   "0006_auth_foundation.sql",
-  "0007_user_management.sql"
+  "0007_user_management.sql",
+  "0008_tasks_operational_module.sql"
 ]
   .map((file) => readFileSync(join(root, "migrations", file), "utf8"))
   .join("\n");
@@ -55,6 +56,7 @@ assert.deepEqual(tables, [
   "sales_visits",
   "sync_runs",
   "system_config",
+  "task_events",
   "tasks",
   "user_management_audit",
   "users"

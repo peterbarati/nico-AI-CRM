@@ -202,6 +202,78 @@ h3 {
   grid-template-columns: minmax(220px, 1.5fr) repeat(4, minmax(130px, 1fr));
 }
 
+.task-filter-panel {
+  grid-template-columns: repeat(5, minmax(150px, 1fr));
+}
+
+.page-heading-actions {
+  align-items: flex-end;
+  display: flex;
+  gap: 14px;
+}
+
+.page-heading-actions p {
+  margin: 0;
+}
+
+.tasks-table {
+  min-width: 1700px;
+}
+
+.task-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 210px;
+}
+
+.task-actions button {
+  min-height: 32px;
+  padding: 0 9px;
+}
+
+.overdue-label {
+  color: #a64034 !important;
+  font-weight: 800;
+}
+
+.task-detail-drawer {
+  max-width: 720px;
+  width: min(100%, 720px);
+}
+
+.task-detail-summary strong,
+.source-context strong,
+.source-context span {
+  display: inline;
+}
+
+.source-context {
+  background: #f4f7fa;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.task-history {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.task-history li {
+  border-bottom: 1px solid #edf1f6;
+  display: flex;
+  justify-content: space-between;
+  padding-bottom: 8px;
+}
+
+.task-history span {
+  color: #66778a;
+}
+
 .users-table {
   min-width: 1180px;
 }
@@ -989,6 +1061,7 @@ textarea {
   }
 
   .filter-panel,
+  .task-filter-panel,
   .assistant-fact-grid,
   .settings-grid,
   .dashboard-metric-grid,
@@ -1027,6 +1100,7 @@ textarea {
   }
 
   .page-heading,
+  .page-heading-actions,
   .detail-header-main,
   .topbar {
     align-items: flex-start;

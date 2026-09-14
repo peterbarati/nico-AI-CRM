@@ -38,8 +38,8 @@ import {
   listCustomerVisits,
   listSegments,
   listActiveUsersByRole,
+  listActiveUsers,
   listSalesTasks,
-  listTasks,
   CallWorkflowError,
   SalesWorkflowError,
   completeSalesVisit,
@@ -83,6 +83,7 @@ import {
 import { authErrorResponse, handlePublicAuthRoute, safeActorResponse } from "./auth-routes";
 import { getSettingsData, validateAndUpdateSettings } from "./settings";
 import { handleUserManagementRoute } from "./user-management";
+import { handleTaskRoute } from "./task-routes";
 
 export interface Env {
   DB: D1Database;
@@ -235,6 +236,9 @@ function getRequiredPermission(request: Request, pathname: string): Permission |
     return "AI_ASSISTANT_USE";
   }
   if (request.method === "PATCH" && pathname === "/api/settings") return "SETTINGS_WRITE";
+  if (pathname === "/api/tasks" || pathname.startsWith("/api/tasks/")) {
+    return request.method === "GET" ? "TASKS_READ" : "TASK_WRITE";
+  }
   if (request.method !== "GET") return null;
   if (pathname === "/api/settings") return "SETTINGS_READ";
   if (pathname === "/api/customer-service/queue") return "CUSTOMER_SERVICE_QUEUE_READ";
@@ -242,7 +246,6 @@ function getRequiredPermission(request: Request, pathname: string): Permission |
   if (pathname === "/api/dashboard") return "DASHBOARD_READ";
   if (pathname === "/api/reports/activity") return "REPORTS_READ";
   if (pathname === "/api/kpi" || pathname.startsWith("/api/kpi/")) return "KPI_READ";
-  if (pathname === "/api/tasks") return "TASKS_READ";
   if (pathname === "/api/users") return "USER_REFERENCES_READ";
   if (
     pathname === "/api/customers" ||
@@ -316,6 +319,9 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
     env.AUTH_MODE
   );
   if (userManagementResponse) return userManagementResponse;
+
+  const taskResponse = await handleTaskRoute(request, context, actor, url);
+  if (taskResponse) return taskResponse;
 
   if (url.pathname === "/api/ai/customer-assistant" && request.method === "POST") {
     return handleCustomerAssistant(request, env, context, actor);
@@ -447,21 +453,19 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
     return ok(await listSegments(context));
   }
 
-  if (url.pathname === "/api/tasks") {
-    const result = await listTasks(context, {
-      ...parsePagination(url),
-      status: url.searchParams.get("status") ?? undefined
-    });
-    return jsonResponse({ ok: true, data: result.items, pagination: result.pagination });
-  }
-
   if (url.pathname === "/api/users") {
     const role = url.searchParams.get("role");
-    if (role !== "sales_rep" && role !== "customer_service") {
+    if (role !== null && role !== "sales_rep" && role !== "customer_service") {
       return badRequest("Supported roles are sales_rep and customer_service.");
     }
-    const users = await listActiveUsersByRole(context, role);
-    return ok(actor.role === "sales_rep" ? users.filter((user) => user.id === actor.id) : users);
+    const users = role
+      ? await listActiveUsersByRole(context, role)
+      : await listActiveUsers(context);
+    if (actor.role === "sales_rep") return ok(users.filter((user) => user.id === actor.id));
+    if (actor.role === "customer_service") {
+      return ok(users.filter((user) => user.role === "customer_service"));
+    }
+    return ok(users);
   }
 
   if (url.pathname === "/api/settings") {

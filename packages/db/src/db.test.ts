@@ -9,10 +9,16 @@ import {
   getCustomerOverview,
   getManagementKpiData,
   getSystemConfigByPrefix,
+  createOperationalTask,
+  getTaskDetail,
   listCustomerServiceCandidates,
   listCustomerOrders,
   listCustomers,
-  listSegments
+  listSegments,
+  listOperationalTasks,
+  transitionOperationalTask,
+  updateOperationalTask,
+  TaskWriteError
 } from "./index";
 
 interface SqliteStatement {
@@ -85,6 +91,9 @@ class TestD1Database {
     this.database.exec(
       readFileSync(join(process.cwd(), "migrations/0007_user_management.sql"), "utf8")
     );
+    this.database.exec(
+      readFileSync(join(process.cwd(), "migrations/0008_tasks_operational_module.sql"), "utf8")
+    );
   }
 
   exec(sql: string): void {
@@ -125,13 +134,176 @@ describe("D1 schema and seed data", () => {
     });
 
     expect(JSON.parse(output)).toMatchObject({
-      tables: 22,
+      tables: 23,
       customers: 20,
       users: 9,
       segments: 9,
       search: ["cus-002"],
       orders: ["ord-002", "ord-001"]
     });
+  });
+});
+
+describe("operational task repositories", () => {
+  const clock = {
+    nowUtc: "2026-09-11T12:00:00.000Z",
+    businessDayFromUtc: "2026-09-10T22:00:00.000Z",
+    businessDayToUtc: "2026-09-11T22:00:00.000Z"
+  };
+
+  it("filters, sorts, and paginates the operational queue", async () => {
+    const context = createSeededContext();
+    const search = await listOperationalTasks(context, {
+      ...clock,
+      search: "Blue Pine",
+      pageSize: 1
+    });
+    const overdue = await listOperationalTasks(context, { ...clock, due: "overdue" });
+    const today = await listOperationalTasks(context, { ...clock, due: "today" });
+    const assigned = await listOperationalTasks(context, {
+      ...clock,
+      assignedUserId: "usr-cs-001",
+      priority: "high"
+    });
+    const team = await listOperationalTasks(context, {
+      ...clock,
+      assignedRole: "sales_rep"
+    });
+
+    expect(search.pagination).toMatchObject({ page: 1, pageSize: 1, total: 1 });
+    expect(search.items[0]?.customerName).toBe("Blue Pine Stores");
+    expect(overdue.items.every((task) => task.overdue)).toBe(true);
+    expect(today.items.map((task) => task.id)).toContain("tsk-004");
+    expect(
+      assigned.items.every(
+        (task) => task.assignedUser.id === "usr-cs-001" && task.priority === "high"
+      )
+    ).toBe(true);
+    expect(team.items.every((task) => task.assignedUser.role === "sales_rep")).toBe(true);
+  });
+
+  it("creates, reschedules, reassigns, and audits a manual task", async () => {
+    const context = createSeededContext();
+    const task = await createOperationalTask(context, {
+      id: "tsk-manual-test",
+      eventId: "evt-create",
+      actorUserId: "usr-manager-001",
+      assignedUserId: "usr-cs-001",
+      customerId: "cus-001",
+      customerLocationId: "loc-001-main",
+      title: "Manual test",
+      description: null,
+      operationalType: "CUSTOMER_SERVICE",
+      priority: "normal",
+      dueAt: "2026-09-12T08:00:00.000Z",
+      createdAt: clock.nowUtc
+    });
+    expect(task).toMatchObject({ sourceOrigin: "MANUAL", operationalType: "CUSTOMER_SERVICE" });
+
+    const updated = await updateOperationalTask(context, {
+      taskId: task.id,
+      eventId: "evt-update",
+      actorUserId: "usr-manager-001",
+      assignedUserId: "usr-cs-002",
+      dueAt: "2026-09-13T08:00:00.000Z",
+      updatedAt: "2026-09-11T13:00:00.000Z"
+    });
+    const detail = await getTaskDetail(context, task.id, clock.nowUtc);
+    expect(updated.assignedUser.id).toBe("usr-cs-002");
+    expect(detail?.events.map((event) => event.eventType)).toEqual(["RESCHEDULED", "CREATED"]);
+  });
+
+  it("rejects inactive assignees and invalid state transitions while keeping completion idempotent", async () => {
+    const context = createSeededContext();
+    await expect(
+      createOperationalTask(context, {
+        id: "tsk-invalid",
+        eventId: "evt-invalid",
+        actorUserId: "usr-admin-001",
+        assignedUserId: "usr-inactive-001",
+        customerId: null,
+        customerLocationId: null,
+        title: "Invalid",
+        description: null,
+        operationalType: "OTHER",
+        priority: "low",
+        dueAt: null,
+        createdAt: clock.nowUtc
+      })
+    ).rejects.toMatchObject({ code: "ASSIGNEE_INVALID" });
+
+    const first = await transitionOperationalTask(context, {
+      taskId: "tsk-001",
+      eventId: "evt-complete",
+      actorUserId: "usr-cs-001",
+      status: "completed",
+      updatedAt: clock.nowUtc
+    });
+    const duplicate = await transitionOperationalTask(context, {
+      taskId: "tsk-001",
+      eventId: "evt-complete-duplicate",
+      actorUserId: "usr-cs-001",
+      status: "completed",
+      updatedAt: clock.nowUtc
+    });
+    expect(first.duplicate).toBe(false);
+    expect(duplicate.duplicate).toBe(true);
+    await expect(
+      transitionOperationalTask(context, {
+        taskId: "tsk-001",
+        eventId: "evt-cancel",
+        actorUserId: "usr-cs-001",
+        status: "cancelled",
+        updatedAt: clock.nowUtc
+      })
+    ).rejects.toBeInstanceOf(TaskWriteError);
+  });
+
+  it("cancels an open task without setting a completion timestamp", async () => {
+    const context = createSeededContext();
+    const cancelled = await transitionOperationalTask(context, {
+      taskId: "tsk-002",
+      eventId: "evt-cancel-open",
+      actorUserId: "usr-cs-002",
+      status: "cancelled",
+      updatedAt: clock.nowUtc
+    });
+    const detail = await getTaskDetail(context, "tsk-002", clock.nowUtc);
+
+    expect(cancelled).toMatchObject({ duplicate: false, task: { status: "cancelled" } });
+    expect(cancelled.task.completedAt).toBeNull();
+    expect(detail?.events[0]?.eventType).toBe("CANCELLED");
+  });
+
+  it("returns structured source context for calls and visits", async () => {
+    const context = createSeededContext();
+    await context.db
+      .prepare(
+        `INSERT INTO tasks (
+        id, customer_id, customer_location_id, assigned_user_id, created_by_user_id,
+        source_interaction_id, title, task_type, priority, status, created_at, updated_at,
+        source_visit_id, operational_type, source_origin
+      ) VALUES (?, ?, ?, ?, ?, NULL, ?, 'call', 'normal', 'open', ?, ?, ?, 'FOLLOW_UP_CALL', 'SALES_TO_CS_HANDOFF')`
+      )
+      .bind(
+        "tsk-visit-context",
+        "cus-001",
+        "loc-001-main",
+        "usr-cs-001",
+        "usr-sales-001",
+        "Visit follow-up",
+        clock.nowUtc,
+        clock.nowUtc,
+        "vis-001"
+      )
+      .run();
+    const call = await getTaskDetail(context, "tsk-001", clock.nowUtc);
+    const visit = await getTaskDetail(context, "tsk-visit-context", clock.nowUtc);
+    expect(call?.task.sourceContext.interaction).toMatchObject({
+      id: "int-001",
+      result: "No answer"
+    });
+    expect(visit?.task.sourceContext.visit).toMatchObject({ id: "vis-001", orderValue: 0 });
   });
 });
 

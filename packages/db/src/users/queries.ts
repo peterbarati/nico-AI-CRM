@@ -27,6 +27,13 @@ export async function listActiveUsersByRole(
   return result.results.map(mapUser);
 }
 
+export async function listActiveUsers(context: DatabaseContext): Promise<ActiveUser[]> {
+  const result = await context.db
+    .prepare("SELECT id, name, email, role, active FROM users WHERE active = 1 ORDER BY name ASC")
+    .all<UserRow>();
+  return result.results.map(mapUser);
+}
+
 function mapUser(row: UserRow): ActiveUser {
   return {
     id: row.id,

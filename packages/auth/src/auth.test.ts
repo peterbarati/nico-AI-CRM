@@ -89,6 +89,7 @@ describe("role permissions", () => {
   it("keeps settings writes and user administration with administrators", () => {
     expect(resolvePermissions("admin")).toContain("SETTINGS_WRITE");
     expect(resolvePermissions("manager")).toContain("SETTINGS_READ");
+    expect(resolvePermissions("manager")).toContain("TASK_WRITE");
     expect(resolvePermissions("manager")).not.toContain("SETTINGS_WRITE");
     expect(resolvePermissions("customer_service")).toContain("CUSTOMER_INTERACTIONS_WRITE");
     expect(resolvePermissions("sales_rep")).toContain("SALES_VISIT_WRITE");

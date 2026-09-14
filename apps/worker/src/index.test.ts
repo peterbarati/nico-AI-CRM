@@ -78,6 +78,9 @@ class TestD1Database {
       this.database.exec(
         readFileSync(join(process.cwd(), "migrations/0007_user_management.sql"), "utf8")
       );
+      this.database.exec(
+        readFileSync(join(process.cwd(), "migrations/0008_tasks_operational_module.sql"), "utf8")
+      );
     }
     const seed = readFileSync(join(process.cwd(), "packages/db/seeds/demo.sql"), "utf8");
     this.database.exec(
@@ -157,9 +160,9 @@ describe("createHealthResponse", () => {
 });
 
 describe("customer service API", () => {
-  it("returns the created handoff even while the next migration is pending", async () => {
+  it("returns the created handoff with its normalized task contract", async () => {
     vi.setSystemTime(new Date("2026-09-11T12:00:00.000Z"));
-    const response = await postCall(createTestEnv(false), "cus-006", {
+    const response = await postCall(createTestEnv(), "cus-006", {
       followUpAt: "2026-09-22T10:00:00.000Z",
       idempotencyKey: "pre-migration-readback-001",
       nextAction: "SALES_VISIT",
@@ -174,7 +177,12 @@ describe("customer service API", () => {
       ok: true,
       data: {
         interaction: { reason: "REACTIVATION", result: "RESOLVED" },
-        task: { sourceVisitId: null, taskType: "handoff" }
+        task: {
+          sourceVisitId: null,
+          taskType: "handoff",
+          operationalType: "SALES_VISIT",
+          sourceOrigin: "CS_TO_SALES_HANDOFF"
+        }
       }
     });
   });
@@ -1000,6 +1008,166 @@ describe("admin user management API", () => {
     expect(await me.json()).toMatchObject({
       data: { role: "admin", permissions: expect.arrayContaining(["USER_ADMIN"]) }
     });
+  });
+});
+
+describe("operational Tasks API", () => {
+  it("lists paginated tasks with server-side filters for Admin and Manager", async () => {
+    vi.setSystemTime(new Date("2026-09-11T12:00:00.000Z"));
+    const env = createTestEnv();
+    const admin = await application.fetch(
+      actorRequest(
+        "/api/tasks?page=1&pageSize=2&status=open&priority=high&due=overdue&sort=due_at",
+        "usr-admin-001"
+      ),
+      env
+    );
+    const manager = await application.fetch(
+      actorRequest(
+        "/api/tasks?scope=all&search=Blue&assignedRole=customer_service",
+        "usr-manager-001"
+      ),
+      env
+    );
+    const adminBody = (await admin.json()) as {
+      data: Array<{ overdue: boolean }>;
+      pagination: { pageSize: number };
+    };
+    const managerBody = (await manager.json()) as { data: Array<{ customerName: string }> };
+    expect(admin.status).toBe(200);
+    expect(adminBody.pagination.pageSize).toBe(2);
+    expect(adminBody.data.every((task) => task.overdue)).toBe(true);
+    expect(manager.status).toBe(200);
+    expect(managerBody.data[0]?.customerName).toBe("Blue Pine Stores");
+  });
+
+  it("enforces Customer Service and Sales task scope", async () => {
+    const env = createTestEnv();
+    const customerService = await application.fetch(
+      actorRequest("/api/tasks?scope=all", "usr-cs-001"),
+      env
+    );
+    const sales = await application.fetch(
+      actorRequest("/api/tasks?assignedUserId=usr-sales-002", "usr-sales-001"),
+      env
+    );
+    const csBody = (await customerService.json()) as {
+      data: Array<{ assignedUser: { id: string } }>;
+    };
+    const salesBody = (await sales.json()) as { data: Array<{ assignedUser: { id: string } }> };
+    expect(csBody.data.every((task) => task.assignedUser.id === "usr-cs-001")).toBe(true);
+    expect(salesBody.data.every((task) => task.assignedUser.id === "usr-sales-001")).toBe(true);
+    const forbidden = await application.fetch(
+      actorRequest("/api/tasks/tsk-002", "usr-sales-001"),
+      env
+    );
+    expect(forbidden.status).toBe(403);
+  });
+
+  it("creates a manual task from the authenticated actor and validates assignees", async () => {
+    const env = createTestEnv();
+    const created = await application.fetch(
+      actorRequest("/api/tasks", "usr-manager-001", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          assignedUserId: "usr-cs-001",
+          customerId: "cus-001",
+          customerLocationId: "loc-001-main",
+          title: "Prepare customer follow-up",
+          description: "Manual operational task.",
+          operationalType: "CUSTOMER_SERVICE",
+          priority: "normal",
+          dueAt: "2026-09-15T08:00:00.000Z"
+        })
+      }),
+      env
+    );
+    const body = (await created.json()) as {
+      data: { createdByUser: { id: string }; sourceOrigin: string };
+    };
+    expect(created.status).toBe(201);
+    expect(body.data).toMatchObject({
+      createdByUser: { id: "usr-manager-001" },
+      sourceOrigin: "MANUAL"
+    });
+
+    const inactive = await application.fetch(
+      actorRequest("/api/tasks", "usr-admin-001", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          assignedUserId: "usr-inactive-001",
+          title: "Invalid assignee",
+          operationalType: "OTHER",
+          priority: "low"
+        })
+      }),
+      env
+    );
+    expect(inactive.status).toBe(400);
+    await expect(inactive.json()).resolves.toMatchObject({ error: { code: "ASSIGNEE_INVALID" } });
+  });
+
+  it("supports valid transitions, idempotent completion, reschedule, and reassignment", async () => {
+    const env = createTestEnv();
+    const started = await application.fetch(
+      actorRequest("/api/tasks/tsk-001/start", "usr-cs-001", { method: "POST" }),
+      env
+    );
+    const rescheduled = await application.fetch(
+      actorRequest("/api/tasks/tsk-001", "usr-cs-001", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ assignedUserId: "usr-cs-002", dueAt: "2026-09-20T10:00:00.000Z" })
+      }),
+      env
+    );
+    const completed = await application.fetch(
+      actorRequest("/api/tasks/tsk-001/complete", "usr-cs-002", { method: "POST" }),
+      env
+    );
+    const duplicate = await application.fetch(
+      actorRequest("/api/tasks/tsk-001/complete", "usr-cs-002", { method: "POST" }),
+      env
+    );
+    const invalid = await application.fetch(
+      actorRequest("/api/tasks/tsk-001/start", "usr-cs-002", { method: "POST" }),
+      env
+    );
+    expect(started.status).toBe(200);
+    expect(rescheduled.status).toBe(200);
+    expect(completed.status).toBe(200);
+    await expect(duplicate.json()).resolves.toMatchObject({ data: { duplicate: true } });
+    expect(invalid.status).toBe(409);
+  });
+
+  it("rejects Sales reassignment and unrelated customer writes", async () => {
+    const env = createTestEnv();
+    const reassign = await application.fetch(
+      actorRequest("/api/tasks/tsk-006", "usr-sales-001", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ assignedUserId: "usr-sales-002" })
+      }),
+      env
+    );
+    const unrelated = await application.fetch(
+      actorRequest("/api/tasks", "usr-sales-001", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          assignedUserId: "usr-sales-001",
+          customerId: "cus-003",
+          title: "Out of scope",
+          operationalType: "SALES_VISIT",
+          priority: "normal"
+        })
+      }),
+      env
+    );
+    expect(reassign.status).toBe(403);
+    expect(unrelated.status).toBe(403);
   });
 });
 

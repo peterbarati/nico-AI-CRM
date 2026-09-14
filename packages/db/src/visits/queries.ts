@@ -271,8 +271,9 @@ export async function completeSalesVisit(
           INSERT INTO tasks (
             id, customer_id, customer_location_id, assigned_user_id, created_by_user_id,
             source_interaction_id, title, description, task_type, priority, status,
-            due_at, completed_at, created_at, updated_at, source_visit_id
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, NULL, ?, ?, ?)
+            due_at, completed_at, created_at, updated_at, source_visit_id,
+            operational_type, source_origin
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, NULL, ?, ?, ?, ?, ?)
         `
         )
         .bind(
@@ -289,7 +290,9 @@ export async function completeSalesVisit(
           command.request.followUpAt,
           command.completedAt,
           command.completedAt,
-          command.visitId
+          command.visitId,
+          followUp.operationalType,
+          followUp.sourceOrigin
         )
     );
   }
@@ -442,6 +445,14 @@ async function buildFollowUpTask(
     LOW: "low",
     MEDIUM: "normal"
   } as const;
+  const operationalTypeByAction = {
+    ANOTHER_SALES_VISIT: "SALES_VISIT",
+    B2B_REGISTRATION: "B2B_REGISTRATION",
+    CUSTOMER_SERVICE_CALL: "FOLLOW_UP_CALL",
+    REORDER_FOLLOW_UP: "REORDER",
+    SALES_FOLLOW_UP: "SALES_VISIT",
+    SEND_INFORMATION: "CUSTOMER_SERVICE"
+  } as const;
   return {
     assignedUserId,
     title: `${action.replaceAll("_", " ")} after Sales visit`,
@@ -455,6 +466,8 @@ async function buildFollowUpTask(
       .filter(Boolean)
       .join(" "),
     taskType: taskTypeByAction[action],
+    operationalType: operationalTypeByAction[action],
+    sourceOrigin: customerServiceAction ? "SALES_TO_CS_HANDOFF" : "SALES_VISIT",
     priority: priorityByApiValue[command.request.priority ?? "MEDIUM"]
   };
 }

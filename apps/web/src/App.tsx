@@ -10,6 +10,7 @@ import { SettingsPage } from "./features/settings/SettingsPage";
 import { useAuth } from "./features/auth/AuthContext";
 import { ForbiddenState } from "./features/auth/ForbiddenState";
 import { UsersPage } from "./features/users/UsersPage";
+import { TasksPage } from "./features/tasks/TasksPage";
 import type { Permission } from "@nico-ai-crm/auth";
 import { t } from "./i18n";
 
@@ -78,6 +79,8 @@ export function App() {
       <CustomersPage customerId={customerDetailMatch?.[1]} onNavigate={navigate} />
     ) : path === "/customer-service" ? (
       <CustomerServicePage onNavigate={navigate} />
+    ) : path === "/tasks" ? (
+      <TasksPage onNavigate={navigate} />
     ) : path === "/sales" ? (
       <SalesPage onNavigate={navigate} />
     ) : path === "/reports/activity" || path === "/reports" ? (

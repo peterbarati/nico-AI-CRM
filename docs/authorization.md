@@ -12,7 +12,7 @@ only and never replace API permission checks.
 | Log calls / interactions  | Yes   | No      | Yes              | No                      |
 | Sales queue               | Yes   | Yes     | No               | Assigned only           |
 | Sales visit writes        | Yes   | No      | No               | Assigned only           |
-| Tasks read/write          | Yes   | Read    | Yes              | Yes                     |
+| Tasks read/write          | Yes   | Yes     | Own tasks        | Own assigned tasks      |
 | Dashboard / reports / KPI | Yes   | Yes     | No               | No                      |
 | Settings read             | Yes   | Yes     | No               | No                      |
 | Settings write            | Yes   | No      | No               | No                      |
@@ -29,8 +29,9 @@ visibility to preserve the approved shared queue and handoff workflow. Sales Rep
 only customers, Sales tasks, and visits assigned to them. Direct detail and AI requests for an
 unassigned customer return `403 FORBIDDEN`; list queries are constrained server-side.
 
-The initial scope intentionally does not restrict Customer Service by assignment. Task-level
-scoping beyond the Sales workflow should be added when the general Tasks module becomes active.
+The customer directory intentionally remains broadly visible to Customer Service. In the general
+Tasks module, Customer Service and Sales Representatives are constrained to their own assigned
+tasks; Admin and Manager retain organization-wide visibility and operations.
 
 ## Protected APIs
 

@@ -115,8 +115,8 @@ export async function createCallWorkflow(
           INSERT INTO tasks (
             id, customer_id, customer_location_id, assigned_user_id, created_by_user_id,
             source_interaction_id, title, description, task_type, priority, status,
-            due_at, completed_at, created_at, updated_at
-          ) VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, 'open', ?, NULL, ?, ?)
+            due_at, completed_at, created_at, updated_at, operational_type, source_origin
+          ) VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, 'open', ?, NULL, ?, ?, ?, ?)
         `
         )
         .bind(
@@ -131,7 +131,9 @@ export async function createCallWorkflow(
           task.priority,
           command.request.followUpAt ?? null,
           command.createdAt,
-          command.createdAt
+          command.createdAt,
+          task.operationalType,
+          task.sourceOrigin
         )
     );
   }
@@ -249,6 +251,13 @@ function buildTaskInsert(
     LOW: "low",
     MEDIUM: "normal"
   } as const;
+  const operationalTypeByAction = {
+    B2B_REGISTRATION: "B2B_REGISTRATION",
+    FOLLOW_UP_CALL: "FOLLOW_UP_CALL",
+    OTHER: "OTHER",
+    SALES_VISIT: "SALES_VISIT",
+    SEND_INFORMATION: "CUSTOMER_SERVICE"
+  } as const;
 
   return {
     assignedUserId: isSalesHandoff ? selectedSalesRepId! : command.actorUserId,
@@ -262,6 +271,8 @@ function buildTaskInsert(
       .filter(Boolean)
       .join(" "),
     priority: priorityByApiValue[request.priority ?? "MEDIUM"],
+    operationalType: operationalTypeByAction[request.nextAction],
+    sourceOrigin: isSalesHandoff ? "CS_TO_SALES_HANDOFF" : "CALL",
     taskType: taskTypeByAction[request.nextAction],
     title: titleByAction[request.nextAction]
   };
