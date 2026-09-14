@@ -40,7 +40,12 @@ const editableKeys = new Set([
   "ai.model",
   "ai.max_output_tokens",
   "ai.timeout_ms",
-  "ai.cache_ttl_minutes"
+  "ai.cache_ttl_minutes",
+  "campaign.provider",
+  "campaign.follow_up.delay_days",
+  "campaign.follow_up.clicked_no_conversion",
+  "campaign.follow_up.opened_no_conversion",
+  "campaign.attribution_window_days"
 ]);
 
 export async function getSettingsData(context: DatabaseContext, openAIConfigured: boolean) {
@@ -60,7 +65,8 @@ export async function getSettingsData(context: DatabaseContext, openAIConfigured
       sales: [],
       kpi: pick(["kpi."]),
       business: pick(["system.business_", "business."]),
-      ai: pick(["ai."])
+      ai: pick(["ai."]),
+      campaign: pick(["campaign."])
     },
     kpi,
     aiAvailability: {
@@ -141,6 +147,12 @@ function validateSettingValue(key: string, value: string): boolean {
   if (key === "system.business_timezone") return isValidBusinessTimezone(value);
   if (key === "ai.enabled") return value === "true" || value === "false";
   if (key === "ai.provider") return value === "MOCK" || value === "OPENAI";
+  if (key === "campaign.provider") return ["MOCK", "BREVO", "MAILCHIMP"].includes(value);
+  if (
+    key === "campaign.follow_up.clicked_no_conversion" ||
+    key === "campaign.follow_up.opened_no_conversion"
+  )
+    return value === "true" || value === "false";
   if (key === "business.default_reporting_period") return ["day", "week", "month"].includes(value);
   if (key === "business.default_currency") return /^[A-Z]{3}$/.test(value);
   if (key === "ai.model" || key === "business.company_name")
@@ -152,6 +164,8 @@ function validateSettingValue(key: string, value: string): boolean {
     return Number.isInteger(number) && number >= 100 && number <= 4000;
   if (key === "ai.cache_ttl_minutes")
     return Number.isInteger(number) && number >= 1 && number <= 1440;
+  if (key === "campaign.follow_up.delay_days" || key === "campaign.attribution_window_days")
+    return Number.isInteger(number) && number >= 0 && number <= 365;
   if (key.includes("weight_recent_interaction_reduction")) return number >= -100 && number <= 0;
   return number > 0 && number <= 100000;
 }

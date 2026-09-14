@@ -18,6 +18,7 @@ only and never replace API permission checks.
 | Settings write            | Yes   | No      | No               | No                      |
 | AI assistant              | Yes   | Yes     | Yes              | Assigned customers only |
 | User administration       | Yes   | No      | No               | No                      |
+| Campaign management       | Yes   | Yes     | Read/follow-up   | Customer context only   |
 
 Capabilities are defined once in `packages/auth/src/authorization.ts`. Route handlers request a
 capability rather than comparing roles directly.
@@ -32,6 +33,11 @@ unassigned customer return `403 FORBIDDEN`; list queries are constrained server-
 The customer directory intentionally remains broadly visible to Customer Service. In the general
 Tasks module, Customer Service and Sales Representatives are constrained to their own assigned
 tasks; Admin and Manager retain organization-wide visibility and operations.
+
+Campaign configuration and lifecycle operations require `CAMPAIGNS_WRITE` or `CAMPAIGNS_EXECUTE`.
+Customer Service has `CAMPAIGNS_READ` and may create campaign follow-up tasks only for itself. Sales
+Representatives have no campaign-management capability; existing assigned-customer scope controls
+their compact customer campaign history.
 
 ## Protected APIs
 

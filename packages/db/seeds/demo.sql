@@ -183,15 +183,15 @@ INSERT OR IGNORE INTO sales_visits (id, customer_id, customer_location_id, sales
 UPDATE sales_visits SET source_task_id = 'tsk-002' WHERE id = 'vis-002' AND source_task_id IS NULL;
 UPDATE sales_visits SET source_task_id = 'tsk-005' WHERE id = 'vis-003' AND source_task_id IS NULL;
 
-INSERT OR IGNORE INTO campaigns (id, name, campaign_type, status, description, start_date, end_date, created_at, updated_at) VALUES
-  ('cmp-001', 'September Reorder Push', 'retention', 'active', 'Synthetic demo campaign for reorder follow-up.', '2026-09-01', '2026-09-30', '2026-08-25T00:00:00.000Z', '2026-08-25T00:00:00.000Z'),
-  ('cmp-002', 'Autumn Cross-Sell Newsletter', 'newsletter', 'active', 'Synthetic demo newsletter with click/no-purchase scenario.', '2026-09-01', '2026-09-30', '2026-08-25T00:00:00.000Z', '2026-08-25T00:00:00.000Z');
+INSERT OR IGNORE INTO campaigns (id, name, campaign_type, status, description, start_date, end_date, created_at, updated_at, operational_type, operational_status, created_by_user_id, provider, audience_kind, audience_config_json, follow_up_clicked, follow_up_opened, follow_up_delay_days) VALUES
+  ('cmp-001', 'September Reorder Push', 'retention', 'active', 'Synthetic demo campaign for reorder follow-up.', '2026-09-01', '2026-09-30', '2026-08-25T00:00:00.000Z', '2026-08-25T00:00:00.000Z', 'INFORMATIONAL', 'ACTIVE', 'usr-manager-001', 'MOCK', 'SEGMENT', '{"segmentCode":"seg-reorder-due"}', 1, 0, 2),
+  ('cmp-002', 'Autumn Cross-Sell Newsletter', 'newsletter', 'active', 'Synthetic demo newsletter with click/no-purchase scenario.', '2026-09-01', '2026-09-30', '2026-08-25T00:00:00.000Z', '2026-08-25T00:00:00.000Z', 'NEWSLETTER', 'ACTIVE', 'usr-admin-001', 'MOCK', 'SEGMENT', '{"segmentCode":"seg-cross-sell"}', 1, 0, 2);
 
-INSERT OR IGNORE INTO customer_campaigns (id, campaign_id, customer_id, sent_at, opened_at, clicked_at, converted_at, conversion_order_id, created_at, updated_at) VALUES
-  ('cuc-001', 'cmp-001', 'cus-002', '2026-09-02T08:00:00.000Z', '2026-09-02T10:00:00.000Z', NULL, NULL, NULL, '2026-09-02T08:00:00.000Z', '2026-09-02T10:00:00.000Z'),
-  ('cuc-002', 'cmp-002', 'cus-008', '2026-09-02T08:00:00.000Z', '2026-09-02T09:00:00.000Z', '2026-09-02T09:05:00.000Z', NULL, NULL, '2026-09-02T08:00:00.000Z', '2026-09-02T09:05:00.000Z'),
-  ('cuc-003', 'cmp-002', 'cus-009', '2026-09-02T08:00:00.000Z', '2026-09-02T09:15:00.000Z', '2026-09-02T09:30:00.000Z', NULL, NULL, '2026-09-02T08:00:00.000Z', '2026-09-02T09:30:00.000Z'),
-  ('cuc-004', 'cmp-002', 'cus-001', '2026-09-02T08:00:00.000Z', '2026-09-02T11:00:00.000Z', '2026-09-02T11:05:00.000Z', '2026-09-03T10:00:00.000Z', 'ord-002', '2026-09-02T08:00:00.000Z', '2026-09-03T10:00:00.000Z');
+INSERT OR IGNORE INTO customer_campaigns (id, campaign_id, customer_id, sent_at, opened_at, clicked_at, converted_at, conversion_order_id, created_at, updated_at, delivery_status, delivered_at, provider_member_id) VALUES
+  ('cuc-001', 'cmp-001', 'cus-002', '2026-09-02T08:00:00.000Z', '2026-09-02T10:00:00.000Z', NULL, NULL, NULL, '2026-09-02T08:00:00.000Z', '2026-09-02T10:00:00.000Z', 'DELIVERED', '2026-09-02T08:00:00.000Z', 'mock-cuc-001'),
+  ('cuc-002', 'cmp-002', 'cus-008', '2026-09-02T08:00:00.000Z', '2026-09-02T09:00:00.000Z', '2026-09-02T09:05:00.000Z', NULL, NULL, '2026-09-02T08:00:00.000Z', '2026-09-02T09:05:00.000Z', 'DELIVERED', '2026-09-02T08:00:00.000Z', 'mock-cuc-002'),
+  ('cuc-003', 'cmp-002', 'cus-009', '2026-09-02T08:00:00.000Z', '2026-09-02T09:15:00.000Z', '2026-09-02T09:30:00.000Z', NULL, NULL, '2026-09-02T08:00:00.000Z', '2026-09-02T09:30:00.000Z', 'DELIVERED', '2026-09-02T08:00:00.000Z', 'mock-cuc-003'),
+  ('cuc-004', 'cmp-002', 'cus-001', '2026-09-02T08:00:00.000Z', '2026-09-02T11:00:00.000Z', '2026-09-02T11:05:00.000Z', '2026-09-03T10:00:00.000Z', 'ord-002', '2026-09-02T08:00:00.000Z', '2026-09-03T10:00:00.000Z', 'DELIVERED', '2026-09-02T08:00:00.000Z', 'mock-cuc-004');
 
 INSERT OR IGNORE INTO kpi_definitions (id, code, name, description, metric_type, active, created_at, updated_at) VALUES
   ('kpi-calls', 'CALLS_COMPLETED', 'Calls Completed', 'Legacy KPI superseded by role-aware definitions.', 'count', 0, '2026-01-01T00:00:00.000Z', '2026-09-11T00:00:00.000Z'),

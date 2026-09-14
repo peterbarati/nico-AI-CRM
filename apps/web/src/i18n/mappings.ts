@@ -57,6 +57,24 @@ const labels: Record<string, string> = {
   CS_TO_SALES_HANDOFF: "Zákaznícky servis → obchod",
   SALES_TO_CS_HANDOFF: "Obchod → zákaznícky servis",
   CAMPAIGN: "Kampaň",
+  B2B: "B2B",
+  DRAFT: "Koncept",
+  READY: "Pripravená",
+  NEWSLETTER: "Newsletter",
+  PRODUCT_LAUNCH: "Uvedenie produktu",
+  PROMOTION: "Propagácia",
+  INFORMATIONAL: "Informačná",
+  SEGMENT: "CRM segment",
+  FILTERED: "Filtrované publikum",
+  DELIVERED: "Doručené",
+  SENT: "Odoslané",
+  OPENED: "Otvorené",
+  CLICKED: "Kliknuté",
+  CONVERTED: "Konvertované",
+  FAILED: "Neúspešné",
+  PREPARED: "Pripravené",
+  PENDING: "Čaká na odoslanie",
+  MOCK: "Testovací poskytovateľ",
   STARTED: "Začatá",
   CREATED: "Vytvorená",
   RESCHEDULED: "Preplánovaná",
@@ -93,7 +111,6 @@ const labels: Record<string, string> = {
   registered: "Registrovaný",
   missing: "Chýba registrácia",
   pending: "Čaká na registráciu",
-  MOCK: "Testovací poskytovateľ",
   mock: "Testovacie údaje",
   OIDC: "Firemné prihlásenie",
   OPENAI: "OpenAI",
@@ -139,7 +156,6 @@ const labels: Record<string, string> = {
   "Prepare offer": "Pripraviť ponuku",
   "Sales rep visit": "Návšteva obchodného zástupcu",
   active_campaign: "Aktívna",
-  READY: "Pripravený",
   DISABLED: "Vypnutý",
   UNAVAILABLE: "Nedostupný",
   "Attributed turnover": "Priradený obrat"
@@ -179,6 +195,11 @@ const settingLabels: Record<string, string> = {
   "ai.max_output_tokens": "Maximálny počet výstupných tokenov",
   "ai.timeout_ms": "Časový limit AI (ms)",
   "ai.cache_ttl_minutes": "Platnosť AI odporúčania vo vyrovnávacej pamäti (minúty)",
+  "campaign.provider": "Poskytovateľ kampaní",
+  "campaign.follow_up.delay_days": "Predvolený odklad follow-upu (dni)",
+  "campaign.follow_up.clicked_no_conversion": "Follow-up po kliknutí bez konverzie",
+  "campaign.follow_up.opened_no_conversion": "Follow-up po otvorení bez konverzie",
+  "campaign.attribution_window_days": "Atribučné obdobie kampane (dni)",
   "kpi.attribution_window_days": "Atribučné obdobie KPI (dni)",
   "kpi.reactivation_inactivity_days": "Minimálna neaktivita na reaktiváciu (dni)"
 };
@@ -223,6 +244,14 @@ const settingDescriptions: Record<string, string> = {
   "ai.max_output_tokens": "Maximálna dĺžka výstupu AI asistenta.",
   "ai.timeout_ms": "Maximálny čas čakania na odpoveď AI.",
   "ai.cache_ttl_minutes": "Čas uchovania pripraveného AI odporúčania.",
+  "campaign.provider":
+    "Kanál používaný na doručenie kampane. Reálne integrácie zatiaľ nie sú dostupné.",
+  "campaign.follow_up.delay_days": "Počet dní pred zaradením oprávneného zákazníka do follow-upu.",
+  "campaign.follow_up.clicked_no_conversion":
+    "Vytvorí kandidáta po kliknutí bez následnej konverzie.",
+  "campaign.follow_up.opened_no_conversion":
+    "Vytvorí kandidáta po otvorení bez kliknutia alebo konverzie.",
+  "campaign.attribution_window_days": "Časové okno na operatívne priradenie objednávky ku kampani.",
   "kpi.attribution_window_days": "Obdobie na priradenie obchodného výsledku k aktivite.",
   "kpi.reactivation_inactivity_days":
     "Minimálna predchádzajúca neaktivita pre započítanie reaktivácie."
@@ -239,6 +268,10 @@ const apiErrors: Record<string, string> = {
   CUSTOMER_NOT_FOUND: "Zákazník sa nenašiel.",
   LOCATION_INVALID: "Vybraná prevádzka nepatrí zákazníkovi.",
   ASSIGNEE_INVALID: "Vybraný riešiteľ nie je dostupný.",
+  CAMPAIGN_NOT_FOUND: "Kampaň sa nenašla.",
+  CAMPAIGN_STATE_INVALID: "Túto akciu nemožno vykonať v aktuálnom stave kampane.",
+  CAMPAIGN_AUDIENCE_EMPTY: "Pre kampaň nie sú dostupní oprávnení zákazníci.",
+  CAMPAIGN_PROVIDER_UNAVAILABLE: "Poskytovateľ kampaní momentálne nie je dostupný.",
   API_UNAVAILABLE: "Služba momentálne nie je dostupná.",
   AUTH_SERVICE_UNAVAILABLE: "Služba prihlásenia momentálne nie je dostupná.",
   INVALID_API_RESPONSE: "Pri spracovaní požiadavky sa vyskytla neočakávaná chyba.",
@@ -249,6 +282,18 @@ const apiErrors: Record<string, string> = {
 export function displayLabel(value: string | null | undefined): string {
   if (!value) return "Nepridelené";
   return labels[value] ?? value.replaceAll("_", " ").toLocaleLowerCase("sk-SK");
+}
+
+const campaignStatusLabels: Record<string, string> = {
+  DRAFT: "Koncept",
+  READY: "Pripravená",
+  ACTIVE: "Aktívna",
+  COMPLETED: "Dokončená",
+  CANCELLED: "Zrušená"
+};
+
+export function campaignStatusLabel(value: string): string {
+  return campaignStatusLabels[value] ?? displayLabel(value);
 }
 
 const priorityLabels: Record<string, string> = {

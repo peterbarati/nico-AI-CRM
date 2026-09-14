@@ -1,14 +1,10 @@
 import type {
   CampaignAudienceConfig,
   CampaignAudienceKind,
-  CampaignEventType,
-  CampaignProviderCode,
   CampaignStatus,
-  CampaignType,
-  TaskPriority
+  CampaignType
 } from "@nico-ai-crm/shared";
-import type { PaginationInput, UserReference } from "../types";
-
+import type { ApiPagination, CustomerListItem, UserReference } from "../customers/types";
 export interface CampaignMetrics {
   audience: number;
   sent: number;
@@ -28,7 +24,7 @@ export interface CampaignSummary {
   description: string | null;
   campaignType: CampaignType;
   status: CampaignStatus;
-  provider: CampaignProviderCode;
+  provider: string;
   audienceKind: CampaignAudienceKind;
   startDate: string | null;
   endDate: string | null;
@@ -43,7 +39,7 @@ export interface CampaignMember {
   customerName: string;
   city: string | null;
   assignedSalesRep: UserReference | null;
-  deliveryStatus: "PENDING" | "SENT" | "DELIVERED" | "FAILED";
+  deliveryStatus: string;
   sentAt: string | null;
   deliveredAt: string | null;
   openedAt: string | null;
@@ -52,76 +48,54 @@ export interface CampaignMember {
   conversionOrderId: string | null;
   failedAt: string | null;
 }
-export interface CampaignEvent {
-  id: string;
-  memberId: string | null;
-  eventType: CampaignEventType;
-  provider: string;
-  occurredAt: string;
-}
 export interface CampaignDetail extends CampaignSummary {
   audienceConfig: CampaignAudienceConfig;
   followUpClicked: boolean;
   followUpOpened: boolean;
   followUpDelayDays: number;
   members: CampaignMember[];
-  events: CampaignEvent[];
-}
-export interface CampaignListQuery extends PaginationInput {
-  search?: string;
-  status?: CampaignStatus;
-  campaignType?: CampaignType;
-}
-export interface CampaignAudiencePreview {
-  customers: Array<{
+  events: Array<{
     id: string;
-    companyName: string;
-    city: string | null;
-    assignedSalesRep: UserReference | null;
+    memberId: string | null;
+    eventType: string;
+    provider: string;
+    occurredAt: string;
   }>;
-  count: number;
 }
-export interface CreateCampaignCommand {
-  id: string;
-  actorUserId: string;
+export interface CampaignFilters {
+  page: number;
+  pageSize: number;
+  search: string;
+  status: "" | CampaignStatus;
+  campaignType: "" | CampaignType;
+}
+export interface CampaignPage {
+  items: CampaignSummary[];
+  pagination: ApiPagination;
+}
+export interface CampaignFormValues {
   name: string;
   description: string | null;
   campaignType: CampaignType;
   startDate: string | null;
   endDate: string | null;
-  provider: CampaignProviderCode;
   audienceKind: CampaignAudienceKind;
   audienceConfig: CampaignAudienceConfig;
   followUpClicked: boolean;
   followUpOpened: boolean;
   followUpDelayDays: number;
-  now: string;
 }
-export interface CampaignDeliveryRecord {
-  membershipId: string;
-  externalMemberId: string;
+export interface CampaignAudiencePreview {
+  customers: Array<Pick<CustomerListItem, "id" | "companyName" | "city">>;
+  count: number;
+}
+export interface CampaignHistoryItem {
+  campaignId: string;
+  campaignName: string;
+  campaignType: CampaignType;
+  status: CampaignStatus;
   sentAt: string | null;
-  deliveredAt: string | null;
   openedAt: string | null;
   clickedAt: string | null;
   convertedAt: string | null;
-  failedAt: string | null;
-  failureReason: string | null;
-}
-export interface FollowUpTaskCommand {
-  campaignId: string;
-  actorUserId: string;
-  assignedUserId: string;
-  dueAt: string | null;
-  priority: TaskPriority;
-  now: string;
-}
-export class CampaignWriteError extends Error {
-  constructor(
-    public readonly code: string,
-    message: string
-  ) {
-    super(message);
-    this.name = "CampaignWriteError";
-  }
 }

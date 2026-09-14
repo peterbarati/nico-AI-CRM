@@ -3,15 +3,17 @@ import { formatCurrency, formatDate, formatLabel, isOverdueOpenTask } from "./fo
 import { SegmentBadges } from "./SegmentBadges";
 import type {
   CustomerInteraction,
+  CustomerCampaignHistory,
   CustomerLocation,
   CustomerOverview,
   OrderSummary,
   SalesVisit,
   TaskItem
 } from "./types";
-import { displayLabel, priorityLabel, t } from "../../i18n";
+import { campaignStatusLabel, displayLabel, priorityLabel, t } from "../../i18n";
 
 interface CustomerDetailSectionsProps {
+  campaigns: CustomerCampaignHistory[];
   interactions: CustomerInteraction[];
   locations: CustomerLocation[];
   orders: OrderSummary[];
@@ -21,6 +23,7 @@ interface CustomerDetailSectionsProps {
 }
 
 export function CustomerDetailSections({
+  campaigns,
   interactions,
   locations,
   orders,
@@ -113,6 +116,28 @@ export function CustomerDetailSections({
             isOverdueOpenTask(task.dueAt, task.status)
               ? `${t("Overdue")}: ${formatDate(task.dueAt)}`
               : formatDate(task.dueAt)
+          ])}
+        />
+      </DataPanel>
+      <DataPanel title={t("Campaigns")}>
+        <CompactTable
+          columns={[
+            t("Campaign"),
+            t("Type"),
+            t("Status"),
+            t("Sent"),
+            t("Opened"),
+            t("Clicked"),
+            t("Converted")
+          ]}
+          rows={campaigns.map((campaign) => [
+            campaign.campaignName,
+            displayLabel(campaign.campaignType),
+            campaignStatusLabel(campaign.status),
+            formatDate(campaign.sentAt),
+            formatDate(campaign.openedAt),
+            formatDate(campaign.clickedAt),
+            formatDate(campaign.convertedAt)
           ])}
         />
       </DataPanel>

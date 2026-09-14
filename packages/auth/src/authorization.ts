@@ -15,7 +15,10 @@ const allPermissions = [
   "SETTINGS_WRITE",
   "AI_ASSISTANT_USE",
   "USER_ADMIN",
-  "USER_REFERENCES_READ"
+  "USER_REFERENCES_READ",
+  "CAMPAIGNS_READ",
+  "CAMPAIGNS_WRITE",
+  "CAMPAIGNS_EXECUTE"
 ] satisfies Permission[];
 
 export const rolePermissions: Record<UserRole, readonly Permission[]> = {
@@ -31,7 +34,10 @@ export const rolePermissions: Record<UserRole, readonly Permission[]> = {
     "KPI_READ",
     "SETTINGS_READ",
     "AI_ASSISTANT_USE",
-    "USER_REFERENCES_READ"
+    "USER_REFERENCES_READ",
+    "CAMPAIGNS_READ",
+    "CAMPAIGNS_WRITE",
+    "CAMPAIGNS_EXECUTE"
   ],
   customer_service: [
     "CUSTOMERS_READ",
@@ -40,7 +46,8 @@ export const rolePermissions: Record<UserRole, readonly Permission[]> = {
     "TASKS_READ",
     "TASK_WRITE",
     "AI_ASSISTANT_USE",
-    "USER_REFERENCES_READ"
+    "USER_REFERENCES_READ",
+    "CAMPAIGNS_READ"
   ],
   sales_rep: [
     "CUSTOMERS_READ",

@@ -11,8 +11,10 @@
 - KPI: role/user targets, weights, company target, attribution window, and reactivation inactivity threshold.
 - Business: timezone, company name, reporting currency, and default reporting period.
 - AI: enabled state, provider, model, timeout, token limit, and cache TTL.
+- Campaigns: provider selection, default follow-up delay/behavior, and operational attribution window.
 
 `OPENAI_API_KEY` is an environment secret and is never displayed or accepted by the settings API.
+Future campaign-provider credentials are also Worker environment secrets and never D1 settings.
 
 ## API and validation
 

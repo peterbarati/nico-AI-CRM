@@ -173,6 +173,17 @@ export interface CustomerOverview {
   openTasks: TaskItem[];
 }
 
+export interface CustomerCampaignHistory {
+  campaignId: string;
+  campaignName: string;
+  campaignType: string;
+  status: string;
+  sentAt: string | null;
+  openedAt: string | null;
+  clickedAt: string | null;
+  convertedAt: string | null;
+}
+
 export interface SegmentOption {
   id: string;
   code: string;

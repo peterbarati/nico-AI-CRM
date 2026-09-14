@@ -81,6 +81,12 @@ class TestD1Database {
       this.database.exec(
         readFileSync(join(process.cwd(), "migrations/0008_tasks_operational_module.sql"), "utf8")
       );
+      this.database.exec(
+        readFileSync(
+          join(process.cwd(), "migrations/0009_campaigns_operational_module.sql"),
+          "utf8"
+        )
+      );
     }
     const seed = readFileSync(join(process.cwd(), "packages/db/seeds/demo.sql"), "utf8");
     this.database.exec(
@@ -1168,6 +1174,127 @@ describe("operational Tasks API", () => {
     );
     expect(reassign.status).toBe(403);
     expect(unrelated.status).toBe(403);
+  });
+});
+
+describe("Campaigns API", () => {
+  const payload = {
+    name: "Jesenná ponuka",
+    description: "Deterministický test",
+    campaignType: "PROMOTION",
+    audienceKind: "MANUAL",
+    audienceConfig: { customerIds: ["cus-019", "cus-020"] }
+  };
+
+  it("supports Admin and Manager create, edit, prepare, and idempotent mock start", async () => {
+    const env = createTestEnv();
+    const created = await application.fetch(
+      actorRequest("/api/campaigns", "usr-admin-001", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload)
+      }),
+      env
+    );
+    expect(created.status).toBe(201);
+    const createdBody = (await created.json()) as { data: { id: string } };
+    const id = createdBody.data.id;
+    const edited = await application.fetch(
+      actorRequest(`/api/campaigns/${id}`, "usr-manager-001", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "Upravená jesenná ponuka" })
+      }),
+      env
+    );
+    const prepared = await application.fetch(
+      actorRequest(`/api/campaigns/${id}/prepare`, "usr-manager-001", { method: "POST" }),
+      env
+    );
+    const started = await application.fetch(
+      actorRequest(`/api/campaigns/${id}/start`, "usr-manager-001", { method: "POST" }),
+      env
+    );
+    const duplicate = await application.fetch(
+      actorRequest(`/api/campaigns/${id}/start`, "usr-manager-001", { method: "POST" }),
+      env
+    );
+    const detail = await application.fetch(
+      actorRequest(`/api/campaigns/${id}`, "usr-admin-001"),
+      env
+    );
+
+    expect(edited.status).toBe(200);
+    await expect(prepared.json()).resolves.toMatchObject({
+      ok: true,
+      data: { duplicate: false, campaign: { metrics: { audience: 2 } } }
+    });
+    expect(started.status).toBe(200);
+    await expect(duplicate.json()).resolves.toMatchObject({ data: { duplicate: true } });
+    await expect(detail.json()).resolves.toMatchObject({
+      data: { name: "Upravená jesenná ponuka", status: "ACTIVE", provider: "MOCK" }
+    });
+  });
+
+  it("enforces campaign role boundaries and customer-scoped history", async () => {
+    const env = createTestEnv();
+    const admin = await application.fetch(actorRequest("/api/campaigns", "usr-admin-001"), env);
+    const manager = await application.fetch(actorRequest("/api/campaigns", "usr-manager-001"), env);
+    const customerService = await application.fetch(
+      actorRequest("/api/campaigns", "usr-cs-001"),
+      env
+    );
+    const deniedCsWrite = await application.fetch(
+      actorRequest("/api/campaigns", "usr-cs-001", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload)
+      }),
+      env
+    );
+    const deniedSales = await application.fetch(
+      actorRequest("/api/campaigns", "usr-sales-001"),
+      env
+    );
+    const salesContext = await application.fetch(
+      actorRequest("/api/customers/cus-001/campaigns", "usr-sales-001"),
+      env
+    );
+    const deniedOtherCustomer = await application.fetch(
+      actorRequest("/api/customers/cus-003/campaigns", "usr-sales-001"),
+      env
+    );
+
+    expect([admin.status, manager.status, customerService.status]).toEqual([200, 200, 200]);
+    expect(deniedCsWrite.status).toBe(403);
+    expect(deniedSales.status).toBe(403);
+    expect(salesContext.status).toBe(200);
+    expect(deniedOtherCustomer.status).toBe(403);
+  });
+
+  it("fails closed when mock execution is attempted in production", async () => {
+    const env = { ...createTestEnv(), APP_ENV: "production" };
+    const created = await application.fetch(
+      actorRequest("/api/campaigns", "usr-admin-001", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload)
+      }),
+      env
+    );
+    const id = ((await created.json()) as { data: { id: string } }).data.id;
+    await application.fetch(
+      actorRequest(`/api/campaigns/${id}/prepare`, "usr-admin-001", { method: "POST" }),
+      env
+    );
+    const response = await application.fetch(
+      actorRequest(`/api/campaigns/${id}/start`, "usr-admin-001", { method: "POST" }),
+      env
+    );
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "CAMPAIGN_PROVIDER_UNAVAILABLE" }
+    });
   });
 });
 

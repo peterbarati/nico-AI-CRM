@@ -10,12 +10,23 @@ import {
   getManagementKpiData,
   getSystemConfigByPrefix,
   createOperationalTask,
+  createCampaign,
+  createCampaignFollowUpTasks,
+  getCampaignDetail,
   getTaskDetail,
   listCustomerServiceCandidates,
   listCustomerOrders,
   listCustomers,
   listSegments,
   listOperationalTasks,
+  listCampaigns,
+  listCustomerCampaignHistory,
+  listFollowUpCandidates,
+  prepareCampaign,
+  previewCampaignAudience,
+  recordCampaignDelivery,
+  transitionCampaign,
+  updateCampaign,
   transitionOperationalTask,
   updateOperationalTask,
   TaskWriteError
@@ -94,6 +105,9 @@ class TestD1Database {
     this.database.exec(
       readFileSync(join(process.cwd(), "migrations/0008_tasks_operational_module.sql"), "utf8")
     );
+    this.database.exec(
+      readFileSync(join(process.cwd(), "migrations/0009_campaigns_operational_module.sql"), "utf8")
+    );
   }
 
   exec(sql: string): void {
@@ -134,13 +148,154 @@ describe("D1 schema and seed data", () => {
     });
 
     expect(JSON.parse(output)).toMatchObject({
-      tables: 23,
+      tables: 24,
       customers: 20,
       users: 9,
       segments: 9,
       search: ["cus-002"],
       orders: ["ord-002", "ord-001"]
     });
+  });
+});
+
+describe("campaign repositories", () => {
+  const now = "2026-09-14T12:00:00.000Z";
+  const command = {
+    id: "cmp-test",
+    actorUserId: "usr-admin-001",
+    name: "Testovacia kampaň",
+    description: null,
+    campaignType: "PROMOTION" as const,
+    startDate: null,
+    endDate: null,
+    provider: "MOCK" as const,
+    audienceKind: "MANUAL" as const,
+    audienceConfig: { customerIds: ["cus-019", "cus-020", "cus-020"] },
+    followUpClicked: true,
+    followUpOpened: false,
+    followUpDelayDays: 2,
+    now
+  };
+
+  it("creates, edits, lists, and previews all audience modes", async () => {
+    const context = createSeededContext();
+    await createCampaign(context, command);
+    const updated = await updateCampaign(
+      context,
+      command.id,
+      { name: "Upravená kampaň", campaignType: "NEWSLETTER" },
+      now
+    );
+    const list = await listCampaigns(context, { search: "Upravená" });
+    const manual = await previewCampaignAudience(context, "MANUAL", command.audienceConfig);
+    const segment = await previewCampaignAudience(context, "SEGMENT", { segmentCode: "ACTIVE" });
+    const filtered = await previewCampaignAudience(context, "FILTERED", {
+      active: true,
+      country: "SK"
+    });
+
+    expect(updated).toMatchObject({ name: "Upravená kampaň", campaignType: "NEWSLETTER" });
+    expect(list.items.some((campaign) => campaign.id === command.id)).toBe(true);
+    expect(manual.count).toBe(2);
+    expect(segment.count).toBeGreaterThan(0);
+    expect(filtered.count).toBeGreaterThan(0);
+  });
+
+  it("snapshots unique membership and rejects invalid lifecycle transitions", async () => {
+    const context = createSeededContext();
+    await createCampaign(context, command);
+    const prepared = await prepareCampaign(context, command.id, now);
+    const duplicate = await prepareCampaign(context, command.id, now);
+
+    expect(prepared.campaign?.metrics.audience).toBe(2);
+    expect(duplicate.duplicate).toBe(true);
+    await expect(transitionCampaign(context, command.id, "COMPLETED", now)).rejects.toMatchObject({
+      code: "CAMPAIGN_STATE_INVALID"
+    });
+  });
+
+  it("records normalized engagement and creates linked follow-up tasks idempotently", async () => {
+    const context = createSeededContext();
+    await createCampaign(context, { ...command, followUpDelayDays: 1 });
+    const prepared = await prepareCampaign(context, command.id, now);
+    const member = prepared.campaign!.members[0]!;
+    await recordCampaignDelivery(
+      context,
+      command.id,
+      "MOCK",
+      [
+        {
+          membershipId: member.id,
+          externalMemberId: "mock-member",
+          sentAt: "2026-09-10T10:00:00.000Z",
+          deliveredAt: "2026-09-10T10:01:00.000Z",
+          openedAt: "2026-09-10T11:00:00.000Z",
+          clickedAt: "2026-09-10T12:00:00.000Z",
+          convertedAt: null,
+          failedAt: null,
+          failureReason: null
+        }
+      ],
+      now
+    );
+    const candidates = await listFollowUpCandidates(context, command.id, now);
+    const first = await createCampaignFollowUpTasks(context, {
+      campaignId: command.id,
+      actorUserId: "usr-admin-001",
+      assignedUserId: "usr-cs-001",
+      dueAt: "2026-09-15T08:00:00.000Z",
+      priority: "high",
+      now
+    });
+    const duplicate = await createCampaignFollowUpTasks(context, {
+      campaignId: command.id,
+      actorUserId: "usr-admin-001",
+      assignedUserId: "usr-cs-001",
+      dueAt: null,
+      priority: "normal",
+      now
+    });
+    const task = await getTaskDetail(context, `tsk-${command.id}-${member.customerId}`);
+    const history = await listCustomerCampaignHistory(context, member.customerId);
+
+    expect(candidates.map((candidate) => candidate.id)).toContain(member.id);
+    expect(first).toMatchObject({ eligible: 1, created: 1, duplicate: false });
+    expect(duplicate).toMatchObject({ eligible: 1, created: 0, duplicate: true });
+    expect(task?.task.sourceContext.campaign).toMatchObject({ id: command.id, name: command.name });
+    expect(history.some((item) => item.campaignId === command.id && item.clickedAt)).toBe(true);
+  });
+
+  it("attributes a later normalized completed order without claiming causality", async () => {
+    const context = createSeededContext();
+    await createCampaign(context, {
+      ...command,
+      id: "cmp-attribution",
+      audienceConfig: { customerIds: ["cus-001"] }
+    });
+    const prepared = await prepareCampaign(context, "cmp-attribution", now);
+    const member = prepared.campaign!.members[0]!;
+    await recordCampaignDelivery(
+      context,
+      "cmp-attribution",
+      "MOCK",
+      [
+        {
+          membershipId: member.id,
+          externalMemberId: "mock-attribution",
+          sentAt: "2026-08-01T08:00:00.000Z",
+          deliveredAt: "2026-08-01T08:01:00.000Z",
+          openedAt: "2026-08-01T09:00:00.000Z",
+          clickedAt: "2026-08-01T10:00:00.000Z",
+          convertedAt: null,
+          failedAt: null,
+          failureReason: null
+        }
+      ],
+      now
+    );
+    const detail = await getCampaignDetail(context, "cmp-attribution");
+    expect(detail?.members[0]?.conversionOrderId).toBeTruthy();
+    expect(detail?.metrics.conversionRate).toBe(100);
   });
 });
 

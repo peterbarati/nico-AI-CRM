@@ -11,6 +11,8 @@ import { useAuth } from "./features/auth/AuthContext";
 import { ForbiddenState } from "./features/auth/ForbiddenState";
 import { UsersPage } from "./features/users/UsersPage";
 import { TasksPage } from "./features/tasks/TasksPage";
+import { CampaignsPage } from "./features/campaigns/CampaignsPage";
+import { CampaignDetailPage } from "./features/campaigns/CampaignDetailPage";
 import type { Permission } from "@nico-ai-crm/auth";
 import { t } from "./i18n";
 
@@ -24,7 +26,7 @@ export const navItems: Array<NavItem & { permission: Permission }> = [
     permission: "CUSTOMER_SERVICE_QUEUE_READ"
   },
   { label: t("Sales"), path: "/sales", permission: "SALES_QUEUE_READ" },
-  { label: t("Campaigns"), path: "/campaigns", permission: "CUSTOMERS_READ" },
+  { label: t("Campaigns"), path: "/campaigns", permission: "CAMPAIGNS_READ" },
   { label: t("Reports"), path: "/reports", permission: "REPORTS_READ" },
   { label: t("Settings"), path: "/settings", permission: "SETTINGS_READ" },
   { label: t("Users"), path: "/users", permission: "USER_ADMIN" }
@@ -69,6 +71,7 @@ export function App() {
   }
 
   const customerDetailMatch = path.match(/^\/customers\/([^/]+)$/);
+  const campaignDetailMatch = path.match(/^\/campaigns\/([^/]+)$/);
   const permission = permissionForPath(path);
   const page =
     permission && !actor.permissions.includes(permission) ? (
@@ -83,6 +86,14 @@ export function App() {
       <TasksPage onNavigate={navigate} />
     ) : path === "/sales" ? (
       <SalesPage onNavigate={navigate} />
+    ) : campaignDetailMatch ? (
+      <CampaignDetailPage
+        campaignId={campaignDetailMatch[1]}
+        onBack={() => navigate("/campaigns")}
+        onOpenCustomer={(id) => navigate(`/customers/${id}`)}
+      />
+    ) : path === "/campaigns" ? (
+      <CampaignsPage onNavigate={navigate} />
     ) : path === "/reports/activity" || path === "/reports" ? (
       <ActivityReportPage />
     ) : path === "/settings" ? (
@@ -110,7 +121,7 @@ export function permissionForPath(path: string): Permission | null {
   if (path === "/" || path === "/dashboard") return "DASHBOARD_READ";
   if (path.startsWith("/customers")) return "CUSTOMERS_READ";
   if (path === "/tasks") return "TASKS_READ";
-  if (path === "/campaigns") return "CUSTOMERS_READ";
+  if (path.startsWith("/campaigns")) return "CAMPAIGNS_READ";
   if (path === "/customer-service") return "CUSTOMER_SERVICE_QUEUE_READ";
   if (path === "/sales") return "SALES_QUEUE_READ";
   if (path.startsWith("/reports")) return "REPORTS_READ";

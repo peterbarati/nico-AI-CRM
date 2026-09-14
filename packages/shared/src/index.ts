@@ -16,4 +16,5 @@ export * from "./call-workflow";
 export * from "./business-time";
 export * from "./sales-workflow";
 export * from "./tasks";
+export * from "./campaigns";
 export * from "./api-contract";

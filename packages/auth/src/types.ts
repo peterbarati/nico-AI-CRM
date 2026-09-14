@@ -15,7 +15,10 @@ export const permissions = [
   "SETTINGS_WRITE",
   "AI_ASSISTANT_USE",
   "USER_ADMIN",
-  "USER_REFERENCES_READ"
+  "USER_REFERENCES_READ",
+  "CAMPAIGNS_READ",
+  "CAMPAIGNS_WRITE",
+  "CAMPAIGNS_EXECUTE"
 ] as const;
 
 export type Permission = (typeof permissions)[number];

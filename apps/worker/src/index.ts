@@ -84,6 +84,7 @@ import { authErrorResponse, handlePublicAuthRoute, safeActorResponse } from "./a
 import { getSettingsData, validateAndUpdateSettings } from "./settings";
 import { handleUserManagementRoute } from "./user-management";
 import { handleTaskRoute } from "./task-routes";
+import { handleCampaignRoute } from "./campaign-routes";
 
 export interface Env {
   DB: D1Database;
@@ -239,6 +240,12 @@ function getRequiredPermission(request: Request, pathname: string): Permission |
   if (pathname === "/api/tasks" || pathname.startsWith("/api/tasks/")) {
     return request.method === "GET" ? "TASKS_READ" : "TASK_WRITE";
   }
+  if (pathname.startsWith("/api/campaigns")) {
+    if (request.method === "GET") return "CAMPAIGNS_READ";
+    if (/\/(start|complete|cancel)$/.test(pathname)) return "CAMPAIGNS_EXECUTE";
+    if (/\/follow-up-tasks$/.test(pathname)) return "TASK_WRITE";
+    return "CAMPAIGNS_WRITE";
+  }
   if (request.method !== "GET") return null;
   if (pathname === "/api/settings") return "SETTINGS_READ";
   if (pathname === "/api/customer-service/queue") return "CUSTOMER_SERVICE_QUEUE_READ";
@@ -322,6 +329,9 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
 
   const taskResponse = await handleTaskRoute(request, context, actor, url);
   if (taskResponse) return taskResponse;
+
+  const campaignResponse = await handleCampaignRoute(request, context, actor, url, env.APP_ENV);
+  if (campaignResponse) return campaignResponse;
 
   if (url.pathname === "/api/ai/customer-assistant" && request.method === "POST") {
     return handleCustomerAssistant(request, env, context, actor);

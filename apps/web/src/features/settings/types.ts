@@ -29,6 +29,7 @@ export interface SettingsData {
     kpi: ConfigSetting[];
     business: ConfigSetting[];
     ai: ConfigSetting[];
+    campaign: ConfigSetting[];
   };
   kpi: { targets: KpiSetting[]; companyTargets: CompanyTargetSetting[] };
   aiAvailability: { provider: string; configured: boolean; secretStoredInEnvironment: boolean };

@@ -112,6 +112,10 @@ No ERP connection exists in Phase 1. The table prepares for future incremental, 
 - Tasks reference assigned users and may reference creator users and source interactions.
 - Sales visits reference sales representative users.
 - Campaign memberships may reference a conversion order.
+- Campaigns own their lifecycle, provider code, audience definition, and snapshotted follow-up rules.
+- Campaign memberships snapshot the intended audience and store normalized delivery/conversion facts.
+- Campaign events preserve provider-independent activity history; tasks use `source_campaign_id` for
+  normalized campaign follow-up linkage.
 
 ## User Management Audit
 

@@ -107,6 +107,18 @@ export function SettingsPage({ canWrite = true }: { canWrite?: boolean }) {
           {t("API secrets are never displayed.")}
         </p>
       </SettingsSection>
+      <SettingsSection
+        title={t("Campaigns")}
+        settings={data.sections.campaign}
+        disabled={!canWrite}
+        onChange={(key, value) => updateSetting("campaign", key, value)}
+      >
+        <p className="settings-availability">
+          {t(
+            "Provider credentials are environment secrets. Placeholder providers do not send messages."
+          )}
+        </p>
+      </SettingsSection>
       <section className="settings-section">
         <h3>KPI</h3>
         <SettingsFields
@@ -275,6 +287,18 @@ function SettingsFields({
             >
               <option value="MOCK">{displayLabel("MOCK")}</option>
               <option value="OPENAI">OpenAI</option>
+            </select>
+          ) : setting.key === "campaign.provider" ? (
+            <select
+              disabled={disabled}
+              value={setting.value}
+              onChange={(event) => onChange(setting.key, event.target.value)}
+            >
+              {(["MOCK", "BREVO", "MAILCHIMP"] as const).map((provider) => (
+                <option key={provider} value={provider}>
+                  {provider === "MOCK" ? displayLabel(provider) : provider}
+                </option>
+              ))}
             </select>
           ) : setting.key === "business.default_reporting_period" ? (
             <select

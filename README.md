@@ -20,6 +20,8 @@ apps/
   worker/    Cloudflare Worker API
 packages/
   auth/      authentication provider and authorization contracts
+  campaign-provider/
+            normalized campaign delivery boundary and deterministic mock provider
   db/        D1 schema/client boundary
   shared/    shared types and constants
   erp-contract/
@@ -93,6 +95,9 @@ Authentication and role-based access rules are documented in
 
 Admin-only account lifecycle and identity mapping are documented in
 [`docs/user-management.md`](docs/user-management.md).
+
+The operational campaign lifecycle, audience snapshots, provider boundary, metrics, and follow-up
+workflow are documented in [`docs/campaigns-workflow.md`](docs/campaigns-workflow.md).
 
 ## Quality Checks
 

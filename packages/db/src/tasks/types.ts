@@ -9,6 +9,7 @@ import type {
 import type { PaginationInput, SortDirection, UserReference } from "../types";
 
 export interface TaskSourceContext {
+  campaign: { id: string; name: string; status: string } | null;
   interaction: {
     id: string;
     reason: string | null;
@@ -38,6 +39,7 @@ export interface TaskItem {
   createdByUser: UserReference | null;
   sourceInteractionId: string | null;
   sourceVisitId: string | null;
+  sourceCampaignId: string | null;
   sourceOrigin: TaskSourceOrigin;
   sourceContext: TaskSourceContext;
   title: string;
@@ -159,6 +161,9 @@ export interface TaskRow {
   created_by_user_role: string | null;
   source_interaction_id: string | null;
   source_visit_id: string | null;
+  source_campaign_id: string | null;
+  source_campaign_name: string | null;
+  source_campaign_status: string | null;
   source_origin: TaskSourceOrigin;
   interaction_reason: string | null;
   interaction_result: string | null;

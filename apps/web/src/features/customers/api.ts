@@ -1,5 +1,6 @@
 import type {
   CustomerFilterOptions,
+  CustomerCampaignHistory,
   CustomerInteraction,
   CustomerListFilters,
   CustomerListItem,
@@ -97,6 +98,10 @@ export async function fetchCustomerVisits(
   customerId: string
 ): Promise<PaginatedResponse<SalesVisit>> {
   return fetchPage(`/api/customers/${customerId}/visits?pageSize=10`);
+}
+
+export function fetchCustomerCampaigns(customerId: string): Promise<CustomerCampaignHistory[]> {
+  return requestApiData(`/api/customers/${customerId}/campaigns`);
 }
 
 async function fetchPage<T>(url: string): Promise<PaginatedResponse<T>> {

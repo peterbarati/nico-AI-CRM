@@ -3,6 +3,7 @@ import { LogCallForm } from "../interactions/LogCallForm";
 import { CommercialAssistantPanel } from "../ai/CommercialAssistantPanel";
 import {
   fetchCustomerInteractions,
+  fetchCustomerCampaigns,
   fetchCustomerOrders,
   fetchCustomerOverview,
   fetchCustomerTasks,
@@ -13,6 +14,7 @@ import { CustomerDetailSections } from "./CustomerDetailSections";
 import { CustomerMetricsCards } from "./CustomerMetricsCards";
 import type {
   CustomerInteraction,
+  CustomerCampaignHistory,
   CustomerOverview,
   OrderSummary,
   SalesVisit,
@@ -26,6 +28,7 @@ interface CustomerDetailPageProps {
 }
 
 interface CustomerDetailState {
+  campaigns: CustomerCampaignHistory[];
   interactions: CustomerInteraction[];
   orders: OrderSummary[];
   overview: CustomerOverview;
@@ -44,19 +47,21 @@ export function CustomerDetailPage({ customerId, onBack }: CustomerDetailPagePro
     setLoading(true);
     setError(null);
     try {
-      const [overview, orders, interactions, tasks, visits] = await Promise.all([
+      const [overview, orders, interactions, tasks, visits, campaigns] = await Promise.all([
         fetchCustomerOverview(customerId),
         fetchCustomerOrders(customerId),
         fetchCustomerInteractions(customerId),
         fetchCustomerTasks(customerId),
-        fetchCustomerVisits(customerId)
+        fetchCustomerVisits(customerId),
+        fetchCustomerCampaigns(customerId)
       ]);
       setState({
         interactions: interactions.data,
         orders: orders.data,
         overview,
         tasks: tasks.data,
-        visits: visits.data
+        visits: visits.data,
+        campaigns
       });
     } catch (unknownError) {
       setError(apiErrorMessage(unknownError, "Zákazník momentálne nie je dostupný."));
@@ -120,6 +125,7 @@ export function CustomerDetailPage({ customerId, onBack }: CustomerDetailPagePro
         overview={state.overview}
         tasks={state.tasks}
         visits={state.visits}
+        campaigns={state.campaigns}
       />
       {showLogCall ? (
         <LogCallForm

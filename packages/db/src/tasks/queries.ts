@@ -21,6 +21,8 @@ const taskSelect = `
     au.role AS assigned_user_role, t.created_by_user_id,
     cu.name AS created_by_user_name, cu.email AS created_by_user_email,
     cu.role AS created_by_user_role, t.source_interaction_id, t.source_visit_id,
+    t.source_campaign_id, cp.name AS source_campaign_name,
+    cp.operational_status AS source_campaign_status,
     t.source_origin, i.reason AS interaction_reason, i.result AS interaction_result,
     i.notes AS interaction_notes, i.next_action AS interaction_next_action,
     i.created_at AS interaction_created_at, v.result AS visit_result,
@@ -35,6 +37,7 @@ const taskSelect = `
   LEFT JOIN customer_locations l ON l.id = t.customer_location_id
   LEFT JOIN customer_interactions i ON i.id = t.source_interaction_id
   LEFT JOIN sales_visits v ON v.id = t.source_visit_id
+  LEFT JOIN campaigns cp ON cp.id = t.source_campaign_id
 `;
 
 export async function listCustomerTasks(
@@ -501,8 +504,17 @@ function mapTask(row: TaskRow, nowUtc: string): TaskItem {
         : null,
     sourceInteractionId: row.source_interaction_id,
     sourceVisitId: row.source_visit_id,
+    sourceCampaignId: row.source_campaign_id,
     sourceOrigin: row.source_origin,
     sourceContext: {
+      campaign:
+        row.source_campaign_id && row.source_campaign_name && row.source_campaign_status
+          ? {
+              id: row.source_campaign_id,
+              name: row.source_campaign_name,
+              status: row.source_campaign_status
+            }
+          : null,
       interaction:
         row.source_interaction_id && row.interaction_created_at
           ? {

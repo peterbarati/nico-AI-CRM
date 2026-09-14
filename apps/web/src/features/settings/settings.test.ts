@@ -15,7 +15,8 @@ const settings: SettingsData = {
     sales: [],
     kpi: [],
     business: [],
-    ai: []
+    ai: [],
+    campaign: []
   },
   kpi: {
     targets: [
