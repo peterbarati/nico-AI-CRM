@@ -49,7 +49,27 @@ const editableKeys = new Set([
   "campaign.follow_up.delay_days",
   "campaign.follow_up.clicked_no_conversion",
   "campaign.follow_up.opened_no_conversion",
-  "campaign.attribution_window_days"
+  "campaign.attribution_window_days",
+  "sales.daily_visit_target",
+  "sales.default_visit_duration_minutes",
+  "sales.workday_minutes",
+  "sales.route_average_speed_kmh",
+  "sales.route_distance_penalty_per_km",
+  "sales.opportunity_expiry_days",
+  "sales.opportunity_visit_overdue_days",
+  "sales.opportunity_high_commercial_value",
+  "sales.opportunity_weight_commercial",
+  "sales.opportunity_weight_reorder",
+  "sales.opportunity_weight_reactivation",
+  "sales.opportunity_weight_decline",
+  "sales.opportunity_weight_cross_sell",
+  "sales.opportunity_weight_visit_overdue",
+  "sales.opportunity_weight_task_campaign",
+  "sales.opportunity_weight_strategic",
+  "sales.route_default_start_latitude",
+  "sales.route_default_start_longitude",
+  "sales.route_default_end_latitude",
+  "sales.route_default_end_longitude"
 ]);
 
 export async function getSettingsData(context: DatabaseContext, openAIConfigured: boolean) {
@@ -66,7 +86,7 @@ export async function getSettingsData(context: DatabaseContext, openAIConfigured
   return {
     sections: {
       customerService: pick(["customer_service."]),
-      sales: [],
+      sales: pick(["sales."]),
       kpi: pick(["kpi."]),
       business: pick(["system.business_", "business."]),
       ai: pick(["ai."]),
@@ -161,6 +181,7 @@ function validateSettingValue(key: string, value: string): boolean {
   if (key === "business.default_currency") return /^[A-Z]{3}$/.test(value);
   if (key === "ai.model" || key === "business.company_name")
     return value.length > 0 && value.length <= 100;
+  if ((key.endsWith("_latitude") || key.endsWith("_longitude")) && value === "") return true;
   const number = Number(value);
   if (!Number.isFinite(number)) return false;
   if (key === "ai.timeout_ms") return number >= 1000 && number <= 60000;
@@ -170,6 +191,10 @@ function validateSettingValue(key: string, value: string): boolean {
     return Number.isInteger(number) && number >= 1 && number <= 1440;
   if (key === "campaign.follow_up.delay_days" || key === "campaign.attribution_window_days")
     return Number.isInteger(number) && number >= 0 && number <= 365;
+  if (key.endsWith("_latitude")) return number >= -90 && number <= 90;
+  if (key.endsWith("_longitude")) return number >= -180 && number <= 180;
+  if (key.startsWith("sales.opportunity_weight_")) return number >= 0 && number <= 100;
+  if (key === "sales.route_distance_penalty_per_km") return number >= 0 && number <= 100;
   if (key.includes("weight_recent_interaction_reduction")) return number >= -100 && number <= 0;
   return number > 0 && number <= 100000;
 }

@@ -41,6 +41,8 @@ export const sk = {
   "No task changes recorded.": "Nie sú zaznamenané žiadne zmeny úlohy.",
   "Customer Service": "Zákaznícky servis",
   Sales: "Obchod",
+  "Sales opportunities": "Obchodné príležitosti",
+  "Daily routes": "Denné trasy",
   Campaigns: "Kampane",
   "Campaign management": "Správa kampaní",
   "Add campaign": "Pridať kampaň",

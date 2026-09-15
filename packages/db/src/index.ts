@@ -37,3 +37,5 @@ export * from "./user-management/queries";
 export * from "./user-management/types";
 export * from "./settings/queries";
 export * from "./settings/types";
+export * from "./opportunities/queries";
+export * from "./opportunities/types";

@@ -116,6 +116,11 @@ No ERP connection exists in Phase 1. The table prepares for future incremental, 
 - Campaign memberships snapshot the intended audience and store normalized delivery/conversion facts.
 - Campaign events preserve provider-independent activity history; tasks use `source_campaign_id` for
   normalized campaign follow-up linkage.
+- Sales opportunities reference one customer, location, and Sales Representative, with optional
+  task and campaign sources. Queryable lifecycle and scoring fields are normalized; `facts_json`
+  is an immutable explanation snapshot, not a substitute for queryable schema fields.
+- Sales routes own ordered route stops. Stops reference opportunities and may link to the existing
+  Sales visit workflow instead of creating a second visit model.
 - Campaign provider identifiers remain normalized through `provider`, `external_campaign_id`, and
   `external_event_id`; provider-specific campaign ID columns are not used. Future external contact
   identity mapping belongs in a dedicated `customer_id` / `provider` / `external_contact_id` table
@@ -143,6 +148,8 @@ The first migration creates indexes for common CRM reads:
 - campaign memberships by customer
 - segment memberships by segment
 - sync runs by provider/entity/start time
+- sales opportunities by representative, status, score, customer, and source
+- sales routes by representative/date and route stops by route/sequence
 
 ## Future Extension Points
 
@@ -150,4 +157,6 @@ The first migration creates indexes for common CRM reads:
 - Add segment rule configuration and deterministic segment calculation before adding AI recommendations.
 - Extend the normalized provider identity mapping from migration `0006` only when production SSO requirements are confirmed.
 - Add concrete ERP provider synchronization only in Phase 2 with the client's IT department.
+- Replace approximate routing and demo geodata only through provider boundaries after production
+  routing and geocoding requirements are approved.
 - Consider queues/workflows only when import or calculation jobs become long-running.

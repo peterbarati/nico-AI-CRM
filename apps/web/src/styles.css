@@ -232,6 +232,48 @@ h3 {
   padding: 0 9px;
 }
 
+.opportunity-filters {
+  grid-template-columns: repeat(5, minmax(150px, 1fr));
+}
+
+.route-filters {
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+}
+
+.opportunity-table {
+  min-width: 1500px;
+}
+
+.route-stop-table {
+  min-width: 1300px;
+}
+
+.table-row-group + .table-row-group tr:first-child td {
+  border-top: 1px solid #dde3ec;
+}
+
+.opportunity-reasons td {
+  background: #f4f7fa;
+}
+
+.opportunity-reasons ul {
+  margin: 8px 0 0;
+}
+
+.route-summary {
+  grid-template-columns: repeat(6, minmax(130px, 1fr));
+}
+
+.route-actions {
+  justify-content: flex-end;
+}
+
+.route-disclaimer {
+  color: #66778a;
+  font-size: 0.84rem;
+  margin: 0;
+}
+
 .overdue-label {
   color: #a64034 !important;
   font-weight: 800;

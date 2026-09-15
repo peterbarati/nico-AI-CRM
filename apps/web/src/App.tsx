@@ -13,6 +13,9 @@ import { UsersPage } from "./features/users/UsersPage";
 import { TasksPage } from "./features/tasks/TasksPage";
 import { CampaignsPage } from "./features/campaigns/CampaignsPage";
 import { CampaignDetailPage } from "./features/campaigns/CampaignDetailPage";
+import { OpportunitiesPage } from "./features/opportunities/OpportunitiesPage";
+import { RoutesPage } from "./features/opportunities/RoutesPage";
+import { RouteDetailPage } from "./features/opportunities/RouteDetailPage";
 import type { Permission } from "@nico-ai-crm/auth";
 import { t } from "./i18n";
 
@@ -25,6 +28,12 @@ export const navItems: Array<NavItem & { permission: Permission }> = [
     path: "/customer-service",
     permission: "CUSTOMER_SERVICE_QUEUE_READ"
   },
+  {
+    label: t("Sales opportunities"),
+    path: "/sales/opportunities",
+    permission: "SALES_OPPORTUNITIES_READ"
+  },
+  { label: t("Daily routes"), path: "/sales/routes", permission: "SALES_ROUTES_READ" },
   { label: t("Sales"), path: "/sales", permission: "SALES_QUEUE_READ" },
   { label: t("Campaigns"), path: "/campaigns", permission: "CAMPAIGNS_READ" },
   { label: t("Reports"), path: "/reports", permission: "REPORTS_READ" },
@@ -67,11 +76,12 @@ export function App() {
 
   function navigate(nextPath: string) {
     window.history.pushState({}, "", nextPath);
-    setPath(nextPath);
+    setPath(new URL(nextPath, window.location.origin).pathname);
   }
 
   const customerDetailMatch = path.match(/^\/customers\/([^/]+)$/);
   const campaignDetailMatch = path.match(/^\/campaigns\/([^/]+)$/);
+  const routeDetailMatch = path.match(/^\/sales\/routes\/([^/]+)$/);
   const permission = permissionForPath(path);
   const page =
     permission && !actor.permissions.includes(permission) ? (
@@ -86,6 +96,12 @@ export function App() {
       <TasksPage onNavigate={navigate} />
     ) : path === "/sales" ? (
       <SalesPage onNavigate={navigate} />
+    ) : path === "/sales/opportunities" ? (
+      <OpportunitiesPage onNavigate={navigate} />
+    ) : routeDetailMatch ? (
+      <RouteDetailPage routeId={routeDetailMatch[1]} onNavigate={navigate} />
+    ) : path === "/sales/routes" ? (
+      <RoutesPage onNavigate={navigate} />
     ) : campaignDetailMatch ? (
       <CampaignDetailPage
         campaignId={campaignDetailMatch[1]}
@@ -123,6 +139,8 @@ export function permissionForPath(path: string): Permission | null {
   if (path === "/tasks") return "TASKS_READ";
   if (path.startsWith("/campaigns")) return "CAMPAIGNS_READ";
   if (path === "/customer-service") return "CUSTOMER_SERVICE_QUEUE_READ";
+  if (path.startsWith("/sales/opportunities")) return "SALES_OPPORTUNITIES_READ";
+  if (path.startsWith("/sales/routes")) return "SALES_ROUTES_READ";
   if (path === "/sales") return "SALES_QUEUE_READ";
   if (path.startsWith("/reports")) return "REPORTS_READ";
   if (path === "/settings") return "SETTINGS_READ";

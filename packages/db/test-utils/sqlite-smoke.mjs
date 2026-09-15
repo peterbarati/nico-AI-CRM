@@ -14,7 +14,8 @@ const migrationSql = [
   "0007_user_management.sql",
   "0008_tasks_operational_module.sql",
   "0009_campaigns_operational_module.sql",
-  "0010_campaign_provider_codes.sql"
+  "0010_campaign_provider_codes.sql",
+  "0011_sales_route_opportunity_foundation.sql"
 ]
   .map((file) => readFileSync(join(root, "migrations", file), "utf8"))
   .join("\n");
@@ -56,6 +57,9 @@ assert.deepEqual(tables, [
   "order_items",
   "orders",
   "products",
+  "sales_opportunities",
+  "sales_route_stops",
+  "sales_routes",
   "sales_visits",
   "sync_runs",
   "system_config",

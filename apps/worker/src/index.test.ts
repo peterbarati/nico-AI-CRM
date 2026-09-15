@@ -90,6 +90,12 @@ class TestD1Database {
       this.database.exec(
         readFileSync(join(process.cwd(), "migrations/0010_campaign_provider_codes.sql"), "utf8")
       );
+      this.database.exec(
+        readFileSync(
+          join(process.cwd(), "migrations/0011_sales_route_opportunity_foundation.sql"),
+          "utf8"
+        )
+      );
     }
     const seed = readFileSync(join(process.cwd(), "packages/db/seeds/demo.sql"), "utf8");
     this.database.exec(
@@ -1349,6 +1355,155 @@ describe("Campaigns API", () => {
         code: "VALIDATION_ERROR",
         fields: expect.arrayContaining([expect.objectContaining({ field: "campaign.provider" })])
       }
+    });
+  });
+});
+
+describe("Sales opportunities and routes API", () => {
+  it("generates opportunities idempotently and enforces role scope", async () => {
+    vi.setSystemTime(new Date("2026-09-15T08:00:00.000Z"));
+    const env = createTestEnv();
+    const first = await adminJsonRequest(env, "/api/sales/opportunities/generate", "POST", {
+      salesRepId: "usr-sales-001"
+    });
+    expect(first.status).toBe(201);
+    const firstBody = (await first.json()) as {
+      data: {
+        created: number;
+        items: Array<{ id: string; score: number; reasonCodes: unknown[] }>;
+      };
+    };
+    expect(firstBody.data.created).toBeGreaterThan(0);
+    expect(firstBody.data.items[0]).toMatchObject({
+      score: expect.any(Number),
+      reasonCodes: expect.any(Array)
+    });
+
+    const duplicate = await adminJsonRequest(env, "/api/sales/opportunities/generate", "POST", {
+      salesRepId: "usr-sales-001"
+    });
+    await expect(duplicate.json()).resolves.toMatchObject({
+      data: { created: 0, refreshed: firstBody.data.created }
+    });
+    expect(
+      (await application.fetch(actorRequest("/api/sales/opportunities", "usr-sales-001"), env))
+        .status
+    ).toBe(200);
+    expect(
+      (
+        await application.fetch(
+          actorRequest(`/api/sales/opportunities/${firstBody.data.items[0]!.id}`, "usr-sales-002"),
+          env
+        )
+      ).status
+    ).toBe(403);
+    expect(
+      (await application.fetch(actorRequest("/api/sales/opportunities", "usr-manager-001"), env))
+        .status
+    ).toBe(200);
+    expect(
+      (
+        await application.fetch(
+          actorRequest("/api/sales/opportunities/generate", "usr-manager-001", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ salesRepId: "usr-sales-002" })
+          }),
+          env
+        )
+      ).status
+    ).toBe(201);
+    expect(
+      (await application.fetch(actorRequest("/api/sales/opportunities", "usr-cs-001"), env)).status
+    ).toBe(403);
+  });
+
+  it("supports route changes, lifecycle, and existing Sales visits", async () => {
+    vi.setSystemTime(new Date("2026-09-15T08:00:00.000Z"));
+    const env = createTestEnv();
+    await adminJsonRequest(env, "/api/sales/opportunities/generate", "POST", {
+      salesRepId: "usr-sales-001"
+    });
+    const generated = await adminJsonRequest(env, "/api/sales/routes/generate", "POST", {
+      salesRepId: "usr-sales-001",
+      routeDate: "2026-09-16"
+    });
+    expect(generated.status).toBe(201);
+    const generatedBody = (await generated.json()) as {
+      data: { route: { id: string; stops: Array<{ id: string; opportunityId: string }> } };
+    };
+    const route = generatedBody.data.route;
+    expect(route.stops.length).toBeGreaterThan(0);
+    expect(
+      (await application.fetch(actorRequest(`/api/sales/routes/${route.id}`, "usr-sales-002"), env))
+        .status
+    ).toBe(403);
+
+    const reordered = await application.fetch(
+      actorRequest(`/api/sales/routes/${route.id}`, "usr-sales-001", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          opportunityIds: route.stops.map((stop) => stop.opportunityId).reverse()
+        })
+      }),
+      env
+    );
+    expect(reordered.status).toBe(200);
+    const reorderedBody = (await reordered.json()) as { data: { stops: Array<{ id: string }> } };
+    expect(
+      (
+        await application.fetch(
+          actorRequest(`/api/sales/routes/${route.id}/accept`, "usr-sales-001", {
+            method: "POST"
+          }),
+          env
+        )
+      ).status
+    ).toBe(200);
+    const visit = await application.fetch(
+      actorRequest(
+        `/api/sales/routes/${route.id}/stops/${reorderedBody.data.stops[0]!.id}/visits`,
+        "usr-sales-001",
+        { method: "POST" }
+      ),
+      env
+    );
+    expect(visit.status).toBe(201);
+    await expect(visit.json()).resolves.toMatchObject({
+      ok: true,
+      data: { visitId: expect.any(String) }
+    });
+    expect(
+      await env.DB.prepare(
+        "SELECT COUNT(*) AS total FROM sales_visits WHERE create_idempotency_key LIKE 'route-stop:%'"
+      ).first<{ total: number }>()
+    ).toMatchObject({ total: 1 });
+  });
+
+  it("rejects inactive reps and production routes without an origin", async () => {
+    const env = createTestEnv();
+    expect(
+      (
+        await adminJsonRequest(env, "/api/sales/opportunities/generate", "POST", {
+          salesRepId: "usr-inactive-001"
+        })
+      ).status
+    ).toBe(400);
+    await env.DB.prepare(
+      "UPDATE system_config SET value='' WHERE key LIKE 'sales.route_default_%'"
+    ).run();
+    const production = await application.fetch(
+      actorRequest("/api/sales/routes/generate", "usr-admin-001", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ salesRepId: "usr-sales-001", routeDate: "2026-09-16" })
+      }),
+      { ...env, APP_ENV: "production" }
+    );
+    expect(production.status).toBe(503);
+    await expect(production.json()).resolves.toMatchObject({
+      error: { code: "ROUTE_ORIGIN_REQUIRED" }
     });
   });
 });

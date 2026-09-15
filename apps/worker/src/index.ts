@@ -85,6 +85,7 @@ import { getSettingsData, validateAndUpdateSettings } from "./settings";
 import { handleUserManagementRoute } from "./user-management";
 import { handleTaskRoute } from "./task-routes";
 import { handleCampaignRoute } from "./campaign-routes";
+import { handleOpportunityRoute } from "./opportunity-routes";
 
 export interface Env {
   DB: D1Database;
@@ -224,6 +225,12 @@ function isSortDirection(value: string | null): value is SortDirection {
 }
 
 function getRequiredPermission(request: Request, pathname: string): Permission | null {
+  if (pathname.startsWith("/api/sales/opportunities")) {
+    return request.method === "GET" ? "SALES_OPPORTUNITIES_READ" : "SALES_OPPORTUNITIES_WRITE";
+  }
+  if (pathname.startsWith("/api/sales/routes")) {
+    return request.method === "GET" ? "SALES_ROUTES_READ" : "SALES_ROUTES_WRITE";
+  }
   if (pathname === "/api/admin/users" || pathname.startsWith("/api/admin/users/")) {
     return "USER_ADMIN";
   }
@@ -332,6 +339,15 @@ async function handleApiRequest(request: Request, env: Env, url: URL): Promise<R
 
   const campaignResponse = await handleCampaignRoute(request, context, actor, url, env.APP_ENV);
   if (campaignResponse) return campaignResponse;
+
+  const opportunityResponse = await handleOpportunityRoute(
+    request,
+    context,
+    actor,
+    url,
+    env.APP_ENV
+  );
+  if (opportunityResponse) return opportunityResponse;
 
   if (url.pathname === "/api/ai/customer-assistant" && request.method === "POST") {
     return handleCustomerAssistant(request, env, context, actor);

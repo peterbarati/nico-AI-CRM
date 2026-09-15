@@ -58,6 +58,44 @@ INSERT OR IGNORE INTO customer_locations (id, external_id, customer_id, name, lo
   ('loc-019-main', 'erp-loc-019-main', 'cus-019', 'Silver Hall', 'other', 'Event 19', 'Trnava', '91708', 'SK', NULL, NULL, NULL, 0, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'),
   ('loc-020-main', 'erp-loc-020-main', 'cus-020', 'Terra Garden', 'retail_pos', 'Garden 20', 'Presov', '08006', 'SK', NULL, NULL, NULL, 1, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z');
 
+UPDATE customer_locations SET
+  latitude = CASE city
+    WHEN 'Bratislava' THEN 48.1486 + (CAST(SUBSTR(id,5,3) AS INTEGER) * 0.002)
+    WHEN 'Trnava' THEN 48.3774 + (CAST(SUBSTR(id,5,3) AS INTEGER) * 0.002)
+    WHEN 'Nitra' THEN 48.3061 + (CAST(SUBSTR(id,5,3) AS INTEGER) * 0.002)
+    WHEN 'Zilina' THEN 49.2231 + (CAST(SUBSTR(id,5,3) AS INTEGER) * 0.002)
+    WHEN 'Banska Bystrica' THEN 48.7363
+    WHEN 'Trencin' THEN 48.8945
+    WHEN 'Piestany' THEN 48.5918
+    WHEN 'Zvolen' THEN 48.5744
+    WHEN 'Martin' THEN 49.0665
+    WHEN 'Poprad' THEN 49.0511
+    WHEN 'Kosice' THEN 48.7164 + (CAST(SUBSTR(id,5,3) AS INTEGER) * 0.002)
+    WHEN 'Presov' THEN 48.9984 + (CAST(SUBSTR(id,5,3) AS INTEGER) * 0.002)
+    WHEN 'Komarno' THEN 47.7636
+    ELSE latitude END,
+  longitude = CASE city
+    WHEN 'Bratislava' THEN 17.1077 + (CAST(SUBSTR(id,5,3) AS INTEGER) * 0.002)
+    WHEN 'Trnava' THEN 17.5883 + (CAST(SUBSTR(id,5,3) AS INTEGER) * 0.002)
+    WHEN 'Nitra' THEN 18.0764 + (CAST(SUBSTR(id,5,3) AS INTEGER) * 0.002)
+    WHEN 'Zilina' THEN 18.7394 + (CAST(SUBSTR(id,5,3) AS INTEGER) * 0.002)
+    WHEN 'Banska Bystrica' THEN 19.1462
+    WHEN 'Trencin' THEN 18.0444
+    WHEN 'Piestany' THEN 17.8272
+    WHEN 'Zvolen' THEN 19.1532
+    WHEN 'Martin' THEN 18.9239
+    WHEN 'Poprad' THEN 20.2979
+    WHEN 'Kosice' THEN 21.2611 + (CAST(SUBSTR(id,5,3) AS INTEGER) * 0.002)
+    WHEN 'Presov' THEN 21.2393 + (CAST(SUBSTR(id,5,3) AS INTEGER) * 0.002)
+    WHEN 'Komarno' THEN 18.1226
+    ELSE longitude END,
+  geocoded_at = '2026-09-15T00:00:00.000Z',
+  geocode_source = 'DEMO_SEED'
+WHERE active = 1;
+
+UPDATE system_config SET value = '48.1486' WHERE key IN ('sales.route_default_start_latitude','sales.route_default_end_latitude');
+UPDATE system_config SET value = '17.1077' WHERE key IN ('sales.route_default_start_longitude','sales.route_default_end_longitude');
+
 INSERT OR IGNORE INTO products (id, external_id, sku, name, brand, category, active, created_at, updated_at) VALUES
   ('prd-001', 'erp-prd-001', 'NICO-COF-001', 'Classic Coffee Beans', 'NICO', 'coffee', 1, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'),
   ('prd-002', 'erp-prd-002', 'NICO-TEA-001', 'Mountain Herbal Tea', 'NICO', 'tea', 1, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'),

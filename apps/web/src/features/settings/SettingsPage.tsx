@@ -82,14 +82,12 @@ export function SettingsPage({ canWrite = true }: { canWrite?: boolean }) {
         disabled={!canWrite}
         onChange={(key, value) => updateSetting("customerService", key, value)}
       />
-      <section className="settings-section">
-        <h3>{t("Sales")}</h3>
-        <p className="muted">
-          {t(
-            "Sales workflow configuration uses structured visit and handoff rules. No additional tunable values are approved yet."
-          )}
-        </p>
-      </section>
+      <SettingsSection
+        title={t("Sales")}
+        settings={data.sections.sales}
+        disabled={!canWrite}
+        onChange={(key, value) => updateSetting("sales", key, value)}
+      />
       <SettingsSection
         title={t("Business")}
         settings={data.sections.business}

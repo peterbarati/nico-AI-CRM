@@ -17,6 +17,8 @@
     "@nico-ai-crm/db": "0.1.0",
     "@nico-ai-crm/erp-contract": "0.1.0",
     "@nico-ai-crm/kpi-engine": "0.1.0",
+    "@nico-ai-crm/opportunity-engine": "0.1.0",
+    "@nico-ai-crm/route-planner": "0.1.0",
     "@nico-ai-crm/shared": "0.1.0"
   },
   "devDependencies": {
