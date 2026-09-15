@@ -13,7 +13,8 @@ const migrationSql = [
   "0006_auth_foundation.sql",
   "0007_user_management.sql",
   "0008_tasks_operational_module.sql",
-  "0009_campaigns_operational_module.sql"
+  "0009_campaigns_operational_module.sql",
+  "0010_campaign_provider_codes.sql"
 ]
   .map((file) => readFileSync(join(root, "migrations", file), "utf8"))
   .join("\n");

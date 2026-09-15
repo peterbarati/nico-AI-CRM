@@ -116,6 +116,10 @@ No ERP connection exists in Phase 1. The table prepares for future incremental, 
 - Campaign memberships snapshot the intended audience and store normalized delivery/conversion facts.
 - Campaign events preserve provider-independent activity history; tasks use `source_campaign_id` for
   normalized campaign follow-up linkage.
+- Campaign provider identifiers remain normalized through `provider`, `external_campaign_id`, and
+  `external_event_id`; provider-specific campaign ID columns are not used. Future external contact
+  identity mapping belongs in a dedicated `customer_id` / `provider` / `external_contact_id` table
+  when synchronization is implemented, not in customer metadata.
 
 ## User Management Audit
 

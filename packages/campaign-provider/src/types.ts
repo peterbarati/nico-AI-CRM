@@ -1,4 +1,14 @@
-import type { CampaignProviderCode } from "@nico-ai-crm/shared";
+import type { CampaignChannel, CampaignProviderCode } from "@nico-ai-crm/shared";
+
+export interface CampaignProviderCapabilities {
+  readonly channels: readonly CampaignChannel[];
+  readonly contactSynchronization: boolean;
+  readonly audienceSynchronization: boolean;
+  readonly campaignCreation: boolean;
+  readonly campaignDelivery: boolean;
+  readonly trackingEvents: boolean;
+  readonly webhooks: boolean;
+}
 
 export interface CampaignDeliveryMember {
   membershipId: string;
@@ -17,6 +27,7 @@ export interface CampaignDeliveryOutcome {
 }
 export interface CampaignProvider {
   readonly code: CampaignProviderCode;
+  readonly capabilities: CampaignProviderCapabilities;
   send(input: {
     campaignId: string;
     members: CampaignDeliveryMember[];

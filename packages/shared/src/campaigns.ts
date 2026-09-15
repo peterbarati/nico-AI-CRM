@@ -15,7 +15,10 @@ export type CampaignType = (typeof campaignTypes)[number];
 
 export const campaignAudienceKinds = ["SEGMENT", "MANUAL", "FILTERED"] as const;
 export type CampaignAudienceKind = (typeof campaignAudienceKinds)[number];
-export type CampaignProviderCode = "MOCK" | "BREVO" | "MAILCHIMP";
+export const campaignProviderCodes = ["MOCK", "ECOMAIL", "OMNISEND"] as const;
+export type CampaignProviderCode = (typeof campaignProviderCodes)[number];
+export const campaignChannels = ["EMAIL", "SMS", "PUSH"] as const;
+export type CampaignChannel = (typeof campaignChannels)[number];
 export type CampaignEventType =
   | "PREPARED"
   | "SENT"
@@ -46,6 +49,9 @@ export function isCampaignType(value: unknown): value is CampaignType {
 }
 export function isCampaignAudienceKind(value: unknown): value is CampaignAudienceKind {
   return campaignAudienceKinds.includes(value as CampaignAudienceKind);
+}
+export function isCampaignProviderCode(value: unknown): value is CampaignProviderCode {
+  return campaignProviderCodes.includes(value as CampaignProviderCode);
 }
 export function canTransitionCampaign(from: CampaignStatus, to: CampaignStatus): boolean {
   if (to === "CANCELLED") return !["COMPLETED", "CANCELLED"].includes(from);

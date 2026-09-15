@@ -365,7 +365,7 @@ export function CampaignDetailPage({
               <li key={e.id}>
                 <strong>{displayLabel(e.eventType)}</strong>
                 <span>
-                  {e.provider} · {formatDateTime(e.occurredAt)}
+                  {displayLabel(e.provider)} · {formatDateTime(e.occurredAt)}
                 </span>
               </li>
             ))}

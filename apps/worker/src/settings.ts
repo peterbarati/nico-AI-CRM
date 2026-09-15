@@ -5,7 +5,11 @@ import {
   updateSystemSettings,
   type DatabaseContext
 } from "@nico-ai-crm/db";
-import { isValidBusinessTimezone, type ValidationIssue } from "@nico-ai-crm/shared";
+import {
+  isCampaignProviderCode,
+  isValidBusinessTimezone,
+  type ValidationIssue
+} from "@nico-ai-crm/shared";
 
 const editableKeys = new Set([
   "customer_service.daily_call_target",
@@ -147,7 +151,7 @@ function validateSettingValue(key: string, value: string): boolean {
   if (key === "system.business_timezone") return isValidBusinessTimezone(value);
   if (key === "ai.enabled") return value === "true" || value === "false";
   if (key === "ai.provider") return value === "MOCK" || value === "OPENAI";
-  if (key === "campaign.provider") return ["MOCK", "BREVO", "MAILCHIMP"].includes(value);
+  if (key === "campaign.provider") return isCampaignProviderCode(value);
   if (
     key === "campaign.follow_up.clicked_no_conversion" ||
     key === "campaign.follow_up.opened_no_conversion"

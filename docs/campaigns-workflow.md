@@ -21,9 +21,10 @@ attribute changes later. Repeating prepare does not duplicate memberships.
 
 `CampaignProvider` accepts normalized campaign/member identifiers and returns normalized delivery
 outcomes. `MockCampaignProvider` produces deterministic sent, delivered, opened, clicked, converted,
-and failed outcomes without external communication. `BrevoCampaignProvider` and
-`MailchimpCampaignProvider` are unavailable placeholders only; they contain no endpoints,
-credentials, or provider schemas.
+and failed outcomes without external communication. `EcomailCampaignProvider` and
+`OmnisendCampaignProvider` are unavailable placeholders only; they contain no endpoints,
+credentials, HTTP requests, or assumed provider schemas. Their capabilities remain disabled until
+future integration work verifies each provider's supported channels and features.
 
 Mock execution is rejected when `APP_ENV=production`. Selecting an unavailable placeholder provider
 also fails closed. Future credentials belong in Worker environment secrets, never D1 settings.
@@ -67,6 +68,29 @@ Non-secret settings live in `system_config`: provider choice, default follow-up 
 eligibility, and attribution window. A created campaign snapshots its follow-up rules so later setting
 changes do not silently alter existing work.
 
-Real Brevo or Mailchimp integration is future work. It must implement `CampaignProvider`, map remote
-events to the normalized event model, preserve idempotency, and keep the CRM as the business source
-of truth.
+The approved future integrations are Ecomail and Omnisend. The CRM remains the source of truth;
+providers are delivery and tracking transports. The intended data flow is:
+
+`CRM Campaign -> CampaignProvider -> Ecomail / Omnisend -> provider events -> normalized CRM events -> follow-up logic`
+
+No live provider integration exists yet. Future Ecomail and Omnisend implementations must preserve
+the current campaign lifecycle and translate provider data behind `CampaignProvider`; React and
+Customer Service logic must consume only normalized CRM contracts.
+
+## Integration readiness
+
+Both provider implementations require verification against their current official documentation
+before development. For each provider, future work must define authentication, contact synchronization,
+audience/list mapping, campaign creation and send behavior, tracking-event ingestion, webhook
+verification, unsubscribe handling, bounce/failure handling, rate limits, retry/idempotency rules,
+and external identifiers. No API endpoint or payload shape is assumed here.
+
+The provider contract exposes capability metadata for `EMAIL`, `SMS`, and `PUSH` without claiming
+that every provider supports every channel. Current CRM behavior remains email-oriented. Placeholder
+providers report no enabled capabilities and always fail closed instead of simulating delivery.
+
+Campaign and event identifiers stay provider-neutral in `provider`, `external_campaign_id`, and
+`external_event_id`. Provider-specific columns are not permitted. A later contact mapping should use
+normalized `customer_id`, `provider`, and `external_contact_id` fields in a dedicated mapping table
+only when synchronization is implemented. Secrets such as `ECOMAIL_API_KEY` and
+`OMNISEND_API_KEY` must be Cloudflare environment secrets, never D1 values.

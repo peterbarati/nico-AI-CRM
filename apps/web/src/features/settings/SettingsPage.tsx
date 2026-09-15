@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { campaignProviderCodes, type CampaignProviderCode } from "@nico-ai-crm/shared";
 import { fetchSettings, saveSettings } from "./api";
 import type { ConfigSetting, SettingsData } from "./types";
 import {
@@ -294,9 +295,9 @@ function SettingsFields({
               value={setting.value}
               onChange={(event) => onChange(setting.key, event.target.value)}
             >
-              {(["MOCK", "BREVO", "MAILCHIMP"] as const).map((provider) => (
+              {campaignProviderOptions(import.meta.env.DEV).map((provider) => (
                 <option key={provider} value={provider}>
-                  {provider === "MOCK" ? displayLabel(provider) : provider}
+                  {displayLabel(provider)}
                 </option>
               ))}
             </select>
@@ -325,4 +326,10 @@ function SettingsFields({
       ))}
     </div>
   );
+}
+
+export function campaignProviderOptions(includeMock: boolean): readonly CampaignProviderCode[] {
+  return includeMock
+    ? campaignProviderCodes
+    : campaignProviderCodes.filter((provider) => provider !== "MOCK");
 }

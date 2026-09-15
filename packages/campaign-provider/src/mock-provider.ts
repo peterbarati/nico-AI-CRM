@@ -2,6 +2,15 @@ import type { CampaignDeliveryOutcome, CampaignProvider } from "./types";
 
 export class MockCampaignProvider implements CampaignProvider {
   readonly code = "MOCK" as const;
+  readonly capabilities = {
+    channels: ["EMAIL"],
+    contactSynchronization: false,
+    audienceSynchronization: false,
+    campaignCreation: false,
+    campaignDelivery: true,
+    trackingEvents: true,
+    webhooks: false
+  } as const;
 
   async send(input: Parameters<CampaignProvider["send"]>[0]): Promise<CampaignDeliveryOutcome[]> {
     return input.members.map((member) => {

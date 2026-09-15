@@ -87,6 +87,9 @@ class TestD1Database {
           "utf8"
         )
       );
+      this.database.exec(
+        readFileSync(join(process.cwd(), "migrations/0010_campaign_provider_codes.sql"), "utf8")
+      );
     }
     const seed = readFileSync(join(process.cwd(), "packages/db/seeds/demo.sql"), "utf8");
     this.database.exec(
@@ -1294,6 +1297,58 @@ describe("Campaigns API", () => {
     expect(response.status).toBe(503);
     await expect(response.json()).resolves.toMatchObject({
       error: { code: "CAMPAIGN_PROVIDER_UNAVAILABLE" }
+    });
+  });
+
+  it.each(["ECOMAIL", "OMNISEND"])(
+    "fails closed when the production %s integration is unavailable",
+    async (provider) => {
+      const env = { ...createTestEnv(), APP_ENV: "production" };
+      const configured = await patchJson(env, "/api/settings", {
+        values: { "campaign.provider": provider }
+      });
+      expect(configured.status).toBe(200);
+
+      const created = await application.fetch(
+        actorRequest("/api/campaigns", "usr-admin-001", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ ...payload, name: `${provider} placeholder` })
+        }),
+        env
+      );
+      expect(created.status).toBe(201);
+      const createdBody = (await created.json()) as { data: { id: string; provider: string } };
+      expect(createdBody.data.provider).toBe(provider);
+      await application.fetch(
+        actorRequest(`/api/campaigns/${createdBody.data.id}/prepare`, "usr-admin-001", {
+          method: "POST"
+        }),
+        env
+      );
+      const started = await application.fetch(
+        actorRequest(`/api/campaigns/${createdBody.data.id}/start`, "usr-admin-001", {
+          method: "POST"
+        }),
+        env
+      );
+      expect(started.status).toBe(503);
+      await expect(started.json()).resolves.toMatchObject({
+        error: { code: "CAMPAIGN_PROVIDER_UNAVAILABLE" }
+      });
+    }
+  );
+
+  it.each(["BREVO", "MAILCHIMP"])("rejects retired %s settings", async (provider) => {
+    const response = await patchJson(createTestEnv(), "/api/settings", {
+      values: { "campaign.provider": provider }
+    });
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: {
+        code: "VALIDATION_ERROR",
+        fields: expect.arrayContaining([expect.objectContaining({ field: "campaign.provider" })])
+      }
     });
   });
 });

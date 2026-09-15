@@ -97,7 +97,9 @@ Admin-only account lifecycle and identity mapping are documented in
 [`docs/user-management.md`](docs/user-management.md).
 
 The operational campaign lifecycle, audience snapshots, provider boundary, metrics, and follow-up
-workflow are documented in [`docs/campaigns-workflow.md`](docs/campaigns-workflow.md).
+workflow are documented in [`docs/campaigns-workflow.md`](docs/campaigns-workflow.md). Development
+uses deterministic mock delivery; Ecomail and Omnisend are approved future providers represented by
+fail-closed placeholders only.
 
 ## Quality Checks
 

@@ -108,6 +108,9 @@ class TestD1Database {
     this.database.exec(
       readFileSync(join(process.cwd(), "migrations/0009_campaigns_operational_module.sql"), "utf8")
     );
+    this.database.exec(
+      readFileSync(join(process.cwd(), "migrations/0010_campaign_provider_codes.sql"), "utf8")
+    );
   }
 
   exec(sql: string): void {
@@ -176,6 +179,16 @@ describe("campaign repositories", () => {
     followUpDelayDays: 2,
     now
   };
+
+  it("accepts approved provider codes after the sequential provider migration", async () => {
+    const context = createSeededContext();
+    await expect(
+      createCampaign(context, { ...command, id: "cmp-ecomail", provider: "ECOMAIL" as const })
+    ).resolves.toMatchObject({ provider: "ECOMAIL" });
+    await expect(
+      createCampaign(context, { ...command, id: "cmp-omnisend", provider: "OMNISEND" as const })
+    ).resolves.toMatchObject({ provider: "OMNISEND" });
+  });
 
   it("creates, edits, lists, and previews all audience modes", async () => {
     const context = createSeededContext();

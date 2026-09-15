@@ -33,6 +33,9 @@ describe("Slovak localization", () => {
     expect(kpiLabel("Attributed turnover", "Attributed turnover")).toBe("Priradený obrat");
     expect(priorityLabel("CRITICAL")).toBe("Kritická");
     expect(displayLabel("CRITICAL")).toBe("Kritický");
+    expect(displayLabel("MOCK")).toBe("Testovací provider");
+    expect(displayLabel("ECOMAIL")).toBe("Ecomail");
+    expect(displayLabel("OMNISEND")).toBe("Omnisend");
   });
 
   it("formats dates, times, numbers, currency, and percentages for Slovakia", () => {

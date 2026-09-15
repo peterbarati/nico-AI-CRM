@@ -1,9 +1,6 @@
 import {
-  BrevoCampaignProvider,
   CampaignProviderUnavailableError,
-  MailchimpCampaignProvider,
-  MockCampaignProvider,
-  type CampaignProvider
+  createCampaignProvider
 } from "@nico-ai-crm/campaign-provider";
 import type { AuthenticatedActor } from "@nico-ai-crm/auth";
 import {
@@ -27,13 +24,13 @@ import {
 } from "@nico-ai-crm/db";
 import {
   isCampaignAudienceKind,
+  isCampaignProviderCode,
   isCampaignStatus,
   isCampaignType,
   isTaskPriority,
   type ApiErrorResponse,
   type CampaignAudienceConfig,
   type CampaignAudienceKind,
-  type CampaignProviderCode,
   type CampaignType,
   type TaskPriority
 } from "@nico-ai-crm/shared";
@@ -78,9 +75,8 @@ export async function handleCampaignRoute(
     const defaults = await getCampaignDefaults(context);
     const parsed = parseCampaign(body, defaults);
     if (parsed instanceof Response) return parsed;
-    const configured = ((await getSystemConfigValue(context, "campaign.provider")) ??
-      "MOCK") as CampaignProviderCode;
-    if (!["MOCK", "BREVO", "MAILCHIMP"].includes(configured))
+    const configured = (await getSystemConfigValue(context, "campaign.provider")) ?? "MOCK";
+    if (!isCampaignProviderCode(configured))
       return error(500, "CAMPAIGN_PROVIDER_INVALID", "Campaign provider configuration is invalid.");
     try {
       return json(
@@ -159,7 +155,7 @@ export async function handleCampaignRoute(
             "CAMPAIGN_PROVIDER_UNAVAILABLE",
             "Mock campaign execution is disabled in production."
           );
-        const provider = providerFor(campaign.provider);
+        const provider = createCampaignProvider(campaign.provider);
         const outcomes = await provider.send({
           campaignId: id,
           members: await getCampaignDeliveryMembers(context, id),
@@ -322,11 +318,6 @@ function parseAudience(
   )
     return invalid("customerIds", "Select at least one customer.");
   return { kind: body.audienceKind, config };
-}
-function providerFor(code: CampaignProviderCode): CampaignProvider {
-  if (code === "MOCK") return new MockCampaignProvider();
-  if (code === "BREVO") return new BrevoCampaignProvider();
-  return new MailchimpCampaignProvider();
 }
 function dateOnly(value: unknown): string | null | Response {
   if (value === undefined || value === null || value === "") return null;
